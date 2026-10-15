@@ -1995,7 +1995,8 @@ function toCsv_(table) {
   return '\uFEFF' + table.map(function(row) {
     return row.map(function(v) {
       if (typeof v === 'number' && isFinite(v)) {
-        const n = String(v).replace('.', ',');
+        // Deux décimales, comme à l'écran (« 15,125 » serait lu 15125 par un tableur non français)
+        const n = String(Math.round(v * 100) / 100).replace('.', ',');
         return n.indexOf(',') === -1 ? n : '"' + n + '"';
       }
       let s = String(v === undefined || v === null ? '' : v);

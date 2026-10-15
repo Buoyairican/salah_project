@@ -2080,12 +2080,12 @@
           card('Affectations figées', 'Les 10 plus récentes. Les feuilles restent modifiables à la main dans le classeur (avec avertissement).',
             frozenRows.length ? tableWrap(['Feuille', 'Figée le', 'Par', 'État'], frozenRows) : emptyState('Aucune affectation figée.', 'archive'),
             { icon: 'archive', actions: c.spreadsheetUrl ? [link('Ouvrir le classeur', c.spreadsheetUrl)] : null }),
-          card('Exports CSV', 'Compatibles Excel : UTF-8, séparateur « ; », virgule décimale.', h('div', { class: 'grid grid-cols-1 sm:grid-cols-2 gap-2' }, exportsList.map(function (e) {
+          card('Exports CSV', 'Excel ou LibreOffice : UTF-8, séparateur « ; », virgule décimale (notes entre guillemets).', [h('div', { class: 'grid grid-cols-1 sm:grid-cols-2 gap-2' }, exportsList.map(function (e) {
             return h('button', { type: 'button', class: 'flex items-start gap-3 rounded-lg border border-slate-200 p-3 text-left hover:border-blue-300 hover:bg-blue-50/40 transition', onclick: function () { exportCsv(e[0]); } }, [
               h('span', { class: 'w-8 h-8 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center shrink-0' }, icon('download', 'w-4 h-4')),
               h('span', { class: 'min-w-0' }, [h('span', { class: 'block text-sm font-medium text-slate-900', text: e[1] }), h('span', { class: 'block text-xs text-slate-500', text: e[2] })])
             ]);
-          })), { icon: 'download' })
+          })), h('div', { class: 'mt-4' }, callout('neutral', "LibreOffice : dans la fenêtre d'import, ne cochez que « Point-virgule » (décochez Virgule et Tabulation), choisissez la langue Français et laissez « Formater les champs entre guillemets comme texte » décoché."))], { icon: 'download' })
         ])
       ];
     }
@@ -2792,7 +2792,7 @@
         return '\uFEFF' + table.map(function (row) {
           return row.map(function (v) {
             if (typeof v === 'number' && isFinite(v)) {
-              var n = String(v).replace('.', ',');
+              var n = String(Math.round(v * 100) / 100).replace('.', ',');
               return n.indexOf(',') === -1 ? n : '"' + n + '"';
             }
             var str = String(v === undefined || v === null ? '' : v);
