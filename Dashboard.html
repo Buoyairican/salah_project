@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Affectation de Spécialité - RST</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; }
+    .is-hidden { display: none !important; }
+    .tabular { font-variant-numeric: tabular-nums; }
+    .loader {
+      border: 3px solid #e2e8f0;
+      border-top: 3px solid #1d4ed8;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+    .loader-lg { width: 32px; height: 32px; border-width: 4px; margin-right: 0; }
+    #saveSpinner { border-color: rgba(255,255,255,.35); border-top-color: #fff; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    select[aria-invalid="true"] { border-color: #f87171; background-color: #fef2f2; }
+    select option:disabled { color: #9ca3af; }
+    @media (prefers-reduced-motion: reduce) { .loader { animation: none; } }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen antialiased">
+
+  <!-- Bandeau du mode démo (affiché seulement hors Apps Script) -->
+  <div id="mockBanner" class="is-hidden border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900"></div>
+
+  <!-- [V2] En-tête institutionnel -->
+  <header class="bg-[#0b1f3a] text-white">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:h-16 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-10 h-10 shrink-0 rounded-xl bg-white/10 ring-1 ring-white/15 flex items-center justify-center text-sky-200">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14l9-5-9-5-9 5 9 5z"></path><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"></path><path d="M12 14v6"></path></svg>
+        </div>
+        <div class="min-w-0">
+          <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-200/80 truncate">Université Ibn Tofail · CI2 RST</div>
+          <div class="text-base sm:text-lg font-semibold leading-tight truncate">Choix de la spécialité</div>
+        </div>
+      </div>
+      <div id="syncBar" class="is-hidden flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-300">
+        <span class="inline-flex items-center gap-2">
+          <span id="syncDot" class="inline-block w-2 h-2 rounded-full bg-slate-400"></span>
+          <span id="syncText" class="tabular">Chargement…</span>
+        </span>
+        <button type="button" id="refreshBtn" class="inline-flex items-center gap-1.5 rounded-lg bg-white/10 hover:bg-white/20 px-3 py-1.5 text-sm font-medium text-white ring-1 ring-white/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          Actualiser
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 md:py-8">
+
+    <!-- En-tête de page -->
+    <div class="mb-6">
+      <h1 class="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">Tableau de bord d'affectation</h1>
+      <p class="text-slate-500 mt-1 text-sm md:text-base">Simulation des affectations basée sur le mérite et les quotas.</p>
+    </div>
+
+    <!-- [V2] Annonce de la coordination (texte du serveur via textContent) -->
+    <div id="announcementBox" class="is-hidden mb-5 flex gap-3 rounded-xl border px-4 py-3.5 text-sm" role="status">
+      <svg id="announcementIcon" class="w-5 h-5 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
+      <div class="min-w-0">
+        <p class="font-semibold">Message de la coordination</p>
+        <p id="announcementText" class="mt-0.5 whitespace-pre-line break-words leading-relaxed"></p>
+        <p id="announcementDate" class="mt-1 text-xs opacity-75"></p>
+      </div>
+    </div>
+
+    <!-- [V2] Résultat officiel publié -->
+    <section id="officialCard" class="is-hidden mb-6 overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm" aria-live="polite">
+      <div class="h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500"></div>
+      <div class="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+        <div id="officialIcon" class="w-14 h-14 shrink-0 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path></svg>
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="text-xs font-semibold uppercase tracking-wider text-emerald-700">Résultat officiel</div>
+          <h2 id="officialTitle" class="mt-1 text-xl sm:text-2xl font-semibold text-slate-900 break-words"></h2>
+          <p id="officialText" class="mt-1 text-sm text-slate-600 leading-relaxed"></p>
+        </div>
+        <span id="officialRank" class="is-hidden self-start sm:self-center shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-200"></span>
+      </div>
+    </section>
+
+    <!-- Avertissement -->
+    <p id="disclaimer" class="is-hidden mb-6 flex gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm text-slate-700 shadow-sm">
+      <svg class="w-5 h-5 shrink-0 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      <span><strong id="disclaimerTitle" class="font-semibold text-slate-900">Simulation indicative.</strong> <span id="disclaimerText">Elle est calculée à partir de la liste officielle des notes et des choix enregistrés à ce jour. Ce n'est pas l'affectation définitive : seule la coordination publie les résultats officiels.</span></span>
+    </p>
+
+    <!-- Chargement initial / erreur de chargement -->
+    <section id="bootView" class="max-w-xl mx-auto bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center">
+      <div id="bootLoading" class="flex flex-col items-center justify-center py-6">
+        <div class="loader loader-lg mb-4"></div>
+        <p class="text-slate-500 text-sm">Chargement de votre tableau de bord…</p>
+      </div>
+      <div id="bootError" class="is-hidden py-4">
+        <p class="font-semibold text-red-700">Impossible de charger le tableau de bord.</p>
+        <p id="bootErrorText" class="mt-2 text-sm text-slate-600 break-words"></p>
+        <button type="button" id="bootRetryBtn" class="mt-5 bg-blue-700 text-white font-medium py-2.5 px-5 rounded-lg hover:bg-blue-800 transition-colors disabled:opacity-60">Réessayer</button>
+      </div>
+    </section>
+
+    <!-- [V2] Compte administrateur : lien vers l'interface de gestion -->
+    <section id="adminView" class="is-hidden max-w-xl mx-auto bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 text-center">
+      <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+      </div>
+      <h2 class="text-xl font-semibold text-slate-900">Compte de la coordination</h2>
+      <p class="mt-3 text-slate-600">Vous êtes connecté(e) avec un compte administrateur : il n'a pas de choix à enregistrer. Le suivi de la campagne se fait dans l'interface de gestion.</p>
+      <a id="adminLink" href="#" target="_top" class="mt-6 inline-flex w-full sm:w-auto justify-center items-center bg-blue-700 text-white font-medium py-3 px-6 rounded-lg hover:bg-blue-800 transition-colors shadow-sm">Ouvrir l'interface de gestion</a>
+    </section>
+
+    <!-- Pas de note : seule cette carte est affichée -->
+    <section id="noGradeView" class="is-hidden max-w-xl mx-auto bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 text-center">
+      <svg class="w-12 h-12 mx-auto mb-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+      <h2 class="text-xl font-semibold text-slate-900">Soumettez d'abord votre note</h2>
+      <p id="noGradeMessage" class="mt-3 text-slate-600 break-words"></p>
+      <a id="noGradeLink" href="#" target="_top" class="mt-6 inline-flex w-full sm:w-auto justify-center items-center bg-blue-700 text-white font-medium py-3 px-6 rounded-lg hover:bg-blue-800 transition-colors shadow-sm">Soumettre ma note</a>
+      <p class="mt-5 text-xs text-slate-500">Déjà fait dans un autre onglet ?
+        <button type="button" id="noGradeRefreshBtn" class="font-semibold text-blue-700 hover:underline disabled:text-slate-400">Actualiser</button>
+      </p>
+    </section>
+
+    <!-- Tableau de bord -->
+    <main id="dashView" class="is-hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Colonne de gauche -->
+      <div class="lg:col-span-5 space-y-6 min-w-0">
+
+        <!-- Votre situation -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="px-5 sm:px-6 pt-5 pb-4 flex items-center gap-2 border-b border-slate-100">
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+            <h2 class="text-base font-semibold text-slate-900">Votre situation</h2>
+          </div>
+          <div class="px-5 sm:px-6 py-5">
+            <div class="flex items-end justify-between gap-3 pb-4 border-b border-slate-100">
+              <div>
+                <div class="text-sm text-slate-500">Votre note</div>
+                <div class="text-xs text-slate-400">liste officielle de la promotion</div>
+              </div>
+              <span class="text-3xl font-semibold tracking-tight text-slate-900 tabular"><span id="gradeValue">—</span><span class="text-base font-medium text-slate-400"> / 20</span></span>
+            </div>
+            <div class="py-4 border-b border-slate-100">
+              <div class="text-sm text-slate-500 mb-2">Choix enregistrés</div>
+              <div id="savedChoicesValue"></div>
+              <div id="savedAtValue" class="mt-2 text-xs text-slate-500"></div>
+            </div>
+            <div id="deadlineBox" class="mt-4 rounded-xl border p-4">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">Date limite d'enregistrement</div>
+              <div id="deadlineValue" class="mt-1 font-semibold text-slate-900"></div>
+              <div id="countdownValue" class="mt-1 text-lg font-bold tabular"></div>
+              <div id="deadlineNote" class="mt-1 text-sm"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Étape 1 : formulaire -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="px-5 sm:px-6 pt-5 pb-4 flex items-center gap-3 border-b border-slate-100">
+            <span class="w-7 h-7 shrink-0 rounded-full bg-blue-700 text-white text-sm font-semibold flex items-center justify-center">1</span>
+            <h2 class="text-base sm:text-lg font-semibold text-slate-900">Vos préférences</h2>
+          </div>
+          <div class="px-5 sm:px-6 py-5">
+            <p class="text-sm text-slate-500 mb-5">Classez les 3 filières, de la plus souhaitée à la moins souhaitée. Chaque filière ne peut être choisie qu'une fois : pour changer l'ordre, appuyez d'abord sur «&nbsp;Effacer&nbsp;».</p>
+
+            <form id="preferencesForm" class="space-y-4" novalidate>
+              <div>
+                <label for="choice1" class="block text-sm font-medium text-slate-700 mb-1.5">1er choix</label>
+                <select id="choice1" class="choice-select w-full border border-slate-300 rounded-lg px-3 py-3 text-base text-slate-800 bg-white shadow-sm focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none transition-all"></select>
+              </div>
+              <div>
+                <label for="choice2" class="block text-sm font-medium text-slate-700 mb-1.5">2ème choix</label>
+                <select id="choice2" class="choice-select w-full border border-slate-300 rounded-lg px-3 py-3 text-base text-slate-800 bg-white shadow-sm focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none transition-all"></select>
+              </div>
+              <div>
+                <label for="choice3" class="block text-sm font-medium text-slate-700 mb-1.5">3ème choix</label>
+                <select id="choice3" class="choice-select w-full border border-slate-300 rounded-lg px-3 py-3 text-base text-slate-800 bg-white shadow-sm focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none transition-all"></select>
+              </div>
+
+              <div class="flex items-start justify-between gap-3">
+                <p id="selectionStatus" class="text-xs min-h-[1rem]"></p>
+                <button type="button" id="clearBtn" class="shrink-0 text-xs font-semibold text-blue-700 hover:underline" title="Vider les 3 listes pour changer l'ordre">Effacer</button>
+              </div>
+
+              <div class="pt-1 flex flex-col gap-3">
+                <button type="button" id="previewBtn" class="w-full bg-white text-slate-700 ring-1 ring-inset ring-slate-300 font-medium py-3 px-4 rounded-lg hover:bg-slate-50 transition-colors flex justify-center items-center disabled:opacity-60 disabled:cursor-not-allowed">
+                  <span id="previewSpinner" class="loader is-hidden"></span>
+                  <span id="previewBtnText">Prévisualiser l'affectation</span>
+                </button>
+                <button type="button" id="saveBtn" class="w-full bg-blue-700 text-white font-medium py-3 px-4 rounded-lg hover:bg-blue-800 transition-colors flex justify-center items-center shadow-sm disabled:bg-slate-300 disabled:text-slate-600 disabled:shadow-none disabled:cursor-not-allowed">
+                  <span id="saveSpinner" class="loader is-hidden"></span>
+                  <span id="saveBtnText">Enregistrer mes choix</span>
+                </button>
+              </div>
+
+              <!-- Enregistrement fermé -->
+              <p id="lockNote" class="is-hidden flex gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-sm text-slate-600">
+                <svg class="w-4 h-4 mt-0.5 shrink-0 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                <span id="lockNoteText"></span>
+              </p>
+
+              <!-- Succès de l'enregistrement -->
+              <div id="saveNotice" role="status" class="is-hidden p-3 rounded-lg text-sm bg-green-50 text-green-800 border border-green-200 text-center"></div>
+
+              <!-- Erreurs (validation et serveur) -->
+              <div id="errorBox" role="alert" class="is-hidden p-3 rounded-lg text-sm bg-red-50 text-red-800 border border-red-200 break-words"></div>
+            </form>
+          </div>
+        </section>
+      </div>
+
+      <!-- Colonne de droite -->
+      <div class="lg:col-span-7 space-y-6 min-w-0">
+
+        <!-- Étape 2 : résultat -->
+        <section id="resultCard" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden scroll-mt-4">
+          <div class="px-5 sm:px-6 pt-5 pb-4 flex items-center gap-3 border-b border-slate-100">
+            <span class="w-7 h-7 shrink-0 rounded-full bg-blue-700 text-white text-sm font-semibold flex items-center justify-center">2</span>
+            <h2 class="text-base sm:text-lg font-semibold text-slate-900">Résultat de la simulation</h2>
+          </div>
+          <div class="px-5 sm:px-6 py-5">
+            <div id="projLoading" class="is-hidden flex flex-col items-center justify-center py-8">
+              <div class="loader loader-lg mb-3"></div>
+              <p id="projLoadingText" class="text-slate-500 text-sm animate-pulse">Calcul de la simulation en cours…</p>
+            </div>
+            <div id="projBox" class="rounded-xl p-4 sm:p-5 border"></div>
+          </div>
+        </section>
+
+        <!-- Fiabilité -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="px-5 sm:px-6 pt-5 pb-4 flex items-center gap-2 border-b border-slate-100">
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+            <h2 class="text-base font-semibold text-slate-900">Fiabilité de la projection</h2>
+          </div>
+          <div id="coverageBody" class="px-5 sm:px-6 py-5"></div>
+        </section>
+
+        <!-- Demande par filière -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="px-5 sm:px-6 pt-5 pb-4 flex items-center gap-2 border-b border-slate-100">
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+            <h2 class="text-base font-semibold text-slate-900">Demande par filière</h2>
+          </div>
+          <div class="px-5 sm:px-6 py-5">
+            <div class="overflow-x-auto rounded-lg border border-slate-200">
+              <table class="w-full text-sm text-left">
+                <thead class="text-xs text-slate-500 uppercase tracking-wide bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th scope="col" class="px-2.5 sm:px-4 py-3 font-semibold text-slate-600">Filière</th>
+                    <th scope="col" class="px-2.5 sm:px-4 py-3 font-semibold bg-blue-50/60 text-blue-800 border-l border-slate-200">1er choix</th>
+                    <th scope="col" class="px-2.5 sm:px-4 py-3 font-semibold text-slate-500">2ème choix</th>
+                    <th scope="col" class="px-2.5 sm:px-4 py-3 font-semibold text-slate-500">3ème choix</th>
+                  </tr>
+                </thead>
+                <tbody id="statsTableBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+            <p id="statsNote" class="mt-3 text-xs text-slate-500"></p>
+            <p id="rulesText" class="mt-3 text-sm text-slate-700"></p>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="mt-10 border-t border-slate-200 pt-5 text-xs text-slate-500 flex flex-col sm:flex-row gap-1 sm:justify-between">
+      <span>Université Ibn Tofail · Cycle ingénieur CI2 RST · Affectation des spécialités</span>
+      <span>Une question ? Adressez-vous à la coordination de la filière.</span>
+    </footer>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // =====================================================================
+    // Constantes et petits utilitaires DOM (jamais d'innerHTML : les textes
+    // du serveur passent toujours par textContent)
+    // =====================================================================
+    var POLL_MS_DEFAULT = 60000;
+    // [V2] Aucune liste de secours : les noms des filières viennent toujours du serveur
+    var DEFAULT_BRANCHES = [];
+    // [V2] Couleur de chaque filière, dans l'ordre renvoyé par le serveur (comme l'interface de gestion)
+    var BRANCH_DOTS = ['bg-violet-500', 'bg-sky-500', 'bg-emerald-500'];
+    var RANK_LABELS = ['1er choix', '2ème choix', '3ème choix'];
+    var REASON_LABELS = { CAPACITY: '1er choix complet', QUOTA: "quota minimum d'une autre filière" };
+    var STATUS_UI = {
+      NO_CHOICES:       { label: 'Aucun choix',   box: 'bg-slate-50 border-slate-200',   title: 'text-slate-800',  pill: 'bg-slate-200 text-slate-700' },
+      SECURE:           { label: 'Sécurisé',      box: 'bg-green-50 border-green-200',   title: 'text-green-800',  pill: 'bg-green-200 text-green-800' },
+      FALLBACK_SECURED: { label: 'Repli stable',  box: 'bg-indigo-50 border-indigo-200', title: 'text-indigo-800', pill: 'bg-indigo-200 text-indigo-800' },
+      VULNERABLE:       { label: 'Incertain',     box: 'bg-amber-50 border-amber-300',   title: 'text-amber-900',  pill: 'bg-amber-200 text-amber-900' },
+      UNKNOWN:          { label: 'Statut inconnu', box: 'bg-slate-50 border-slate-200',  title: 'text-slate-800',  pill: 'bg-slate-200 text-slate-700' }
+    };
+
+    function $(id) { return document.getElementById(id); }
+    function el(tag, cls, text) {
+      var n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (text !== undefined && text !== null) n.textContent = String(text);
+      return n;
+    }
+    function append(parent) {
+      for (var i = 1; i < arguments.length; i++) {
+        var c = arguments[i];
+        if (c === null || c === undefined || c === false) continue;
+        parent.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+      }
+      return parent;
+    }
+    function clear(node) { node.textContent = ''; }
+    function show(node, on) { node.classList.toggle('is-hidden', !on); }
+    function num(v) { return (typeof v === 'number' && isFinite(v)) ? v : null; }
+    function fmtInt(v) { var n = num(v); return n === null ? '—' : String(n); }
+    function pad2(n) { return n < 10 ? '0' + n : String(n); }
+    function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+    function joinFr(parts) {
+      if (parts.length <= 1) return parts.join('');
+      return parts.slice(0, -1).join(', ') + ' et ' + parts[parts.length - 1];
+    }
+    function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+    function sameChoices(a, b) {
+      if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+      for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+      return true;
+    }
+
+    var DTF_LONG = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    var DTF_DATE = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    var DTF_TIME = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    function parseIso(iso) { var t = Date.parse(iso); return isNaN(t) ? null : t; }
+    // Date limite et enregistrement : affichés dans le fuseau de l'établissement (state.timeZone),
+    // pas dans celui du téléphone.
+    var tzFmt = null, tzFmtKey = null;
+    function schoolFormatters() {
+      var tz = (state && typeof state.timeZone === 'string' && state.timeZone) || undefined;
+      if (tzFmt === null || tz !== tzFmtKey) {
+        tzFmtKey = tz;
+        try {
+          tzFmt = {
+            long: new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: tz }),
+            date: new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: tz }),
+            time: new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: tz }),
+            label: !tz ? '' : (tz === 'Africa/Casablanca' ? ' (heure du Maroc)' : ' (' + tz + ')')
+          };
+        } catch (e) {
+          tzFmt = { long: DTF_LONG, date: DTF_DATE, time: DTF_TIME, label: '' };
+        }
+      }
+      return tzFmt;
+    }
+    function fmtLong(ms) { var f = schoolFormatters(); return capitalize(f.long.format(new Date(ms))) + f.label; }
+    function fmtShort(ms) { var f = schoolFormatters(), d = new Date(ms); return 'le ' + f.date.format(d) + ' à ' + f.time.format(d); }
+    function fmtCountdown(ms) {
+      var s = Math.max(0, Math.ceil(ms / 1000));
+      var d = Math.floor(s / 86400); s -= d * 86400;
+      var h = Math.floor(s / 3600); s -= h * 3600;
+      var m = Math.floor(s / 60); s -= m * 60;
+      return (d > 0 ? d + ' j ' : '') + pad2(h) + ' h ' + pad2(m) + ' min ' + pad2(s) + ' s';
+    }
+    function fmtAgo(ms) {
+      var s = Math.max(0, Math.round(ms / 1000));
+      if (s < 5) return "à l'instant";
+      if (s < 60) return 'il y a ' + s + ' s';
+      var m = Math.floor(s / 60);
+      if (m < 60) return 'il y a ' + m + ' min';
+      return 'il y a ' + Math.floor(m / 60) + ' h ' + pad2(m % 60);
+    }
+    function fmtGrade(v) {
+      var n = num(v);
+      return n === null ? '—' : n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // =====================================================================
+    // Pont vers le serveur : google.script.run, ou la maquette locale
+    // =====================================================================
+    var HAS_GAS = typeof google !== 'undefined' && google.script && google.script.run;
+    var mock = HAS_GAS ? null : createMock();
+    var POLL_MS = (mock && mock.pollMs) || POLL_MS_DEFAULT;
+
+    function server(onOk, onFail) {
+      return HAS_GAS
+        ? google.script.run.withSuccessHandler(onOk).withFailureHandler(onFail)
+        : mock.run(onOk, onFail);
+    }
+
+    // =====================================================================
+    // État de la page
+    // =====================================================================
+    var state = null;          // dernier DashboardState affiché
+    var clockOffset = 0;       // heure serveur - heure du téléphone (ms)
+    var lastUpdateAt = 0;      // heure locale de la dernière réponse reçue
+    var lastPollFailed = false;
+    var dropdownsReady = false;
+    var branchesKey = '';
+    var action = null;         // 'preview' | 'save' pendant un appel lancé par l'étudiant
+    var bgInFlight = 0;        // appels 'load' / 'poll' en cours
+    var seq = 0;               // numéro du dernier appel lancé
+    var appliedSeq = 0;        // numéro de la dernière réponse affichée
+    var pollTimer = null;
+    var deadlineFired = false;
+    var errorKind = null;      // 'validation' | 'action' | 'poll' | null
+    var noticeTimer = null;
+
+    var selects = Array.prototype.slice.call(document.querySelectorAll('.choice-select'));
+    var previewBtn = $('previewBtn');
+    var saveBtn = $('saveBtn');
+
+    function anyInFlight() { return action !== null || bgInFlight > 0; }
+    function serverNow() { return Date.now() + clockOffset; }
+    function isOk() { return !!state && state.access === 'OK'; } // [V2] ADMIN n'est pas une vue étudiant
+    function deadlineMs() { return isOk() && state.deadline ? parseIso(state.deadline) : null; }
+    function deadlinePassed() { var d = deadlineMs(); return d !== null && serverNow() >= d; }
+    function isLocked() { return isOk() && (state.locked === true || deadlinePassed()); }
+    function getBranches() {
+      var b = isOk() && state.rules && state.rules.branches;
+      return (Array.isArray(b) && b.length >= 3) ? b.map(String) : DEFAULT_BRANCHES.slice();
+    }
+    // Les choix de la projection actuellement à l'écran (pour le polling)
+    function shownChoices() {
+      if (!isOk() || !state.projection || state.projection.status === 'NO_CHOICES') return null;
+      var c = state.projection.choices;
+      return (Array.isArray(c) && c.length === 3) ? c.slice() : null;
+    }
+
+    // =====================================================================
+    // Appels serveur
+    // =====================================================================
+    function call(fn, arg, kind) {
+      var id = ++seq;
+      var t0 = Date.now();
+      if (kind === 'preview' || kind === 'save') action = kind; else bgInFlight++;
+      syncBusyUI();
+      server(
+        function (res) { onResponse(res, kind, id, t0); },
+        function (err) { handleError(err, kind, id); }
+      )[fn](arg);
+    }
+
+    function settle(kind) {
+      if (kind === 'preview' || kind === 'save') action = null;
+      else bgInFlight = Math.max(0, bgInFlight - 1);
+    }
+
+    function refresh() {
+      if (anyInFlight()) return;           // jamais deux requêtes empilées
+      if (!state) call('getDashboardState', null, 'load');
+      else call('getDashboardState', shownChoices(), 'poll');
+    }
+
+    function onResponse(res, kind, id, t0) {
+      // [V2] access 'ADMIN' : compte de la coordination, redirigé vers l'interface de gestion
+      if (!res || typeof res !== 'object' || (res.access !== 'NO_GRADE' && res.access !== 'OK' && res.access !== 'ADMIN')) {
+        handleError(new Error('Réponse inattendue du serveur. Réessayez dans un instant.'), kind, id);
+        return;
+      }
+      settle(kind);
+      if (id >= appliedSeq) {              // ignorer une réponse plus ancienne que celle affichée
+        appliedSeq = id;
+        var st = parseIso(res.serverTime);
+        if (st !== null) clockOffset = st - (t0 + Date.now()) / 2;
+        state = res;
+        lastUpdateAt = Date.now();
+        lastPollFailed = false;
+        if (kind === 'preview' || kind === 'save' || errorKind === 'poll') clearError();
+        render();
+        if (kind === 'save') showSaveNotice();
+        if (kind === 'preview') scrollToResult();
+      }
+      syncBusyUI();
+      schedulePoll();
+    }
+
+    // Gestionnaire d'erreurs unique : remet tous les boutons et chargements à
+    // l'état normal, puis affiche le message dans la page (pas d'alert).
+    function handleError(err, kind, id) {
+      settle(kind);
+      syncBusyUI();
+      var msg = (err && err.message) ? String(err.message) : String(err || 'Erreur inconnue.');
+      if (kind === 'poll') lastPollFailed = true;
+      if (!state) {
+        $('bootErrorText').textContent = msg;
+        show($('bootError'), true);
+      } else if (id >= appliedSeq) {
+        if (kind === 'poll') showError('Mise à jour automatique impossible : ' + msg, 'poll');
+        else showError(msg, 'action');
+      }
+      updateSyncText();
+      schedulePoll();
+      // Enregistrement refusé (clôture, verrou…) : relire l'état tout de suite, sans attendre le prochain cycle
+      if (kind === 'save' && state) refresh();
+    }
+
+    function showError(msg, kind) {
+      var box = $('errorBox');
+      box.textContent = msg;
+      errorKind = kind;
+      // Dans la vue « pas de note », la carte d'erreur du chargement sert de zone d'erreur
+      if (!isOk() && state) {
+        $('bootErrorText').textContent = msg;
+        show($('bootView'), true);
+        show($('bootLoading'), false);
+        show($('bootError'), true);
+      }
+      show(box, true);
+    }
+    function clearError() {
+      errorKind = null;
+      $('errorBox').textContent = '';
+      show($('errorBox'), false);
+      selects.forEach(function (s) { s.removeAttribute('aria-invalid'); });
+    }
+
+    function syncBusyUI() {
+      var locked = isLocked();
+      previewBtn.disabled = action !== null;
+      show($('previewSpinner'), action === 'preview');
+      $('previewBtnText').textContent = action === 'preview' ? 'Calcul…' : "Prévisualiser l'affectation";
+
+      saveBtn.disabled = action !== null || locked;
+      show($('saveSpinner'), action === 'save');
+      $('saveBtnText').textContent = action === 'save' ? 'Enregistrement…' : (locked ? 'Enregistrement fermé' : 'Enregistrer mes choix');
+      show($('lockNote'), isOk() && locked);
+      $('lockNoteText').textContent = lockReasonText();
+
+      show($('projLoading'), action !== null);
+      show($('projBox'), action === null);
+      $('projLoadingText').textContent = action === 'save' ? 'Enregistrement en cours…' : 'Calcul de la simulation en cours…';
+
+      $('refreshBtn').disabled = anyInFlight();
+      $('noGradeRefreshBtn').disabled = anyInFlight();
+      show($('bootLoading'), !state && bgInFlight > 0);
+      if (!state && bgInFlight > 0) show($('bootError'), false);
+      $('bootRetryBtn').disabled = anyInFlight();
+      updateSyncText();
+    }
+
+    function lockReasonText() {
+      // [V2] Résultats publiés
+      if (isOk() && state.official && state.official.published) return "Les résultats officiels sont publiés : l'enregistrement est fermé.";
+      if (deadlinePassed()) return "L'enregistrement est fermé : la date limite est passée. Vous pouvez encore prévisualiser.";
+      return "L'enregistrement est fermé pour le moment. Vous pouvez encore prévisualiser.";
+    }
+
+    // =====================================================================
+    // Polling : toutes les 60 s quand l'onglet est visible
+    // =====================================================================
+    function schedulePoll() {
+      clearTimeout(pollTimer);
+      pollTimer = null;
+      if (document.visibilityState === 'hidden') return;
+      if (state && state.access === 'ADMIN') return; // [V2] rien à suivre pour un administrateur
+      pollTimer = setTimeout(function () {
+        pollTimer = null;
+        if (anyInFlight()) schedulePoll(); else refresh();
+      }, POLL_MS);
+    }
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') {
+        clearTimeout(pollTimer);
+        pollTimer = null;
+      } else if (anyInFlight()) {
+        schedulePoll();
+      } else {
+        refresh();
+      }
+      updateSyncText();
+    });
+
+    function updateSyncText() {
+      var dot = $('syncDot');
+      var text;
+      var tone = 'bg-slate-300';
+      if (!lastUpdateAt) {
+        text = bgInFlight ? 'Chargement…' : 'Pas encore de données';
+      } else if (bgInFlight > 0) {
+        text = 'Mise à jour…';
+        tone = 'bg-blue-400';
+      } else {
+        var ago = fmtAgo(Date.now() - lastUpdateAt);
+        var at = DTF_TIME.format(new Date(lastUpdateAt));
+        if (lastPollFailed) { text = 'Dernière mise à jour réussie ' + ago + ' (' + at + ')'; tone = 'bg-amber-400'; }
+        else { text = 'Mis à jour ' + ago + ' (' + at + ')'; tone = 'bg-green-500'; }
+        if (document.visibilityState === 'hidden') text += ' · en pause';
+      }
+      $('syncText').textContent = text;
+      dot.className = 'inline-block w-2 h-2 rounded-full ' + tone;
+    }
+
+    // Horloge : compte à rebours + « il y a X »
+    function tick() {
+      updateSyncText();
+      if (!isOk()) return;
+      renderDeadline();
+      if (deadlinePassed() && !deadlineFired) {
+        deadlineFired = true;                 // bascule en mode verrouillé
+        syncBusyUI();
+        updateSelectionStatus();
+        refresh();
+      }
+    }
+
+    // =====================================================================
+    // Rendu
+    // =====================================================================
+    function render() {
+      show($('bootView'), false);
+      show($('bootError'), false);
+      // [V2] Annonce et résultat officiel : seulement dans la vue étudiant ; compte administrateur à part
+      show($('announcementBox'), false);
+      show($('officialCard'), false);
+      if (state.access === 'ADMIN') {
+        renderAdmin();
+        return;
+      }
+      show($('adminView'), false);
+      if (state.access === 'NO_GRADE') {
+        renderNoGrade();
+        return;
+      }
+      show($('noGradeView'), false);
+      show($('dashView'), true);
+      show($('syncBar'), true);
+      show($('disclaimer'), true);
+
+      var branches = getBranches();
+      if (!dropdownsReady) {
+        buildOptions(branches);
+        restoreDropdowns(state.savedChoices, branches);
+        dropdownsReady = true;
+      } else if (branches.join('|') !== branchesKey) {
+        buildOptions(branches);                // garde les valeurs déjà choisies
+      }
+      deadlineFired = deadlinePassed();     // déjà verrouillé par le serveur : pas de bascule à déclencher
+
+      renderAnnouncement(); // [V2]
+      renderOfficial();     // [V2]
+      renderSituation();
+      renderDeadline();
+      renderProjection();
+      renderCoverage();
+      renderStats();
+      updateSelectionStatus();
+      syncBusyUI();
+    }
+
+    function renderNoGrade() {
+      show($('dashView'), false);
+      show($('syncBar'), false);
+      show($('disclaimer'), false);
+      show($('noGradeView'), true);
+      $('noGradeMessage').textContent = state.message || "Vous devez d'abord soumettre votre note pour accéder au tableau de bord.";
+      var link = $('noGradeLink');
+      var url = typeof state.formUrl === 'string' ? state.formUrl : '';
+      if (/^https:\/\//i.test(url)) {
+        link.href = url;
+        show(link, true);
+      } else {
+        link.removeAttribute('href');
+        show(link, false);
+      }
+    }
+
+    // [V2] Compte administrateur : lien vers l'interface de gestion (URL fournie par le serveur)
+    function renderAdmin() {
+      show($('dashView'), false);
+      show($('noGradeView'), false);
+      show($('syncBar'), false);
+      show($('disclaimer'), false);
+      show($('adminView'), true);
+      var link = $('adminLink');
+      var url = typeof state.adminUrl === 'string' ? state.adminUrl : '';
+      if (/^https:\/\//i.test(url)) {
+        link.href = url;
+        show(link, true);
+      } else {
+        link.removeAttribute('href');
+        show(link, false);
+      }
+    }
+
+    // [V2] Annonce de la coordination (texte brut, via textContent)
+    function renderAnnouncement() {
+      var a = state.announcement;
+      var box = $('announcementBox');
+      if (!a || typeof a.text !== 'string' || !a.text) { show(box, false); return; }
+      var warn = a.level === 'warning';
+      box.className = 'mb-5 flex gap-3 rounded-xl border px-4 py-3.5 text-sm shadow-sm ' +
+        (warn ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-blue-200 bg-blue-50 text-blue-900');
+      $('announcementIcon').setAttribute('class', 'w-5 h-5 shrink-0 mt-0.5 ' + (warn ? 'text-amber-500' : 'text-blue-500'));
+      $('announcementText').textContent = a.text;
+      var at = parseIso(a.updatedAt);
+      $('announcementDate').textContent = at !== null ? 'Publié ' + fmtShort(at) + '.' : '';
+      show(box, true);
+    }
+
+    // [V2] Résultat officiel publié (lu par le serveur dans la feuille Affectation publiée)
+    function renderOfficial() {
+      var o = state.official;
+      var published = !!(o && o.published === true);
+      $('disclaimerTitle').textContent = published ? 'Les résultats officiels sont publiés.' : 'Simulation indicative.';
+      $('disclaimerText').textContent = published
+        ? 'Votre filière officielle est indiquée ci-dessus. La simulation ci-dessous reste indicative et ne remplace pas la décision publiée.'
+        : "Elle est calculée à partir de la liste officielle des notes et des choix enregistrés à ce jour. Ce n'est pas l'affectation définitive : seule la coordination publie les résultats officiels.";
+      var card = $('officialCard');
+      show(card, published);
+      if (!published) return;
+      var at = parseIso(o.publishedAt);
+      var rank = $('officialRank');
+      var k = num(o.choiceRank);
+      if (o.branch) {
+        card.className = 'mb-6 overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm';
+        $('officialIcon').className = 'w-14 h-14 shrink-0 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center';
+        $('officialTitle').textContent = 'Vous êtes affecté(e) à ' + o.branch;
+        $('officialText').textContent = 'Affectation définitive publiée par la coordination' + (at !== null ? ' ' + fmtShort(at) : '') + '.';
+        rank.textContent = k ? 'Votre ' + RANK_LABELS[k - 1] : '';
+        show(rank, !!k);
+      } else {
+        card.className = 'mb-6 overflow-hidden rounded-2xl border border-amber-300 bg-white shadow-sm';
+        $('officialIcon').className = 'w-14 h-14 shrink-0 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center';
+        $('officialTitle').textContent = 'Votre nom ne figure pas dans la liste publiée';
+        $('officialText').textContent = 'Les résultats ont été publiés' + (at !== null ? ' ' + fmtShort(at) : '') + ', mais votre affectation n’y apparaît pas. Contactez la coordination de la filière.';
+        show(rank, false);
+      }
+    }
+
+    function rankingNode(choices) {
+      var list = el('ol', 'flex flex-wrap gap-2');
+      var branches = getBranches();
+      choices.forEach(function (b, i) {
+        var li = el('li', 'inline-flex items-center gap-1.5 rounded-md bg-white border border-slate-200 px-2 py-1 text-sm text-slate-800 shadow-sm');
+        var k = branches.indexOf(b); // [V2] pastille de couleur de la filière
+        append(li, el('span', 'text-xs font-bold text-slate-400', (i + 1) + '.'),
+          k !== -1 ? el('span', 'inline-block w-2 h-2 rounded-full ' + BRANCH_DOTS[k % BRANCH_DOTS.length]) : null,
+          el('span', 'font-medium', b));
+        list.appendChild(li);
+      });
+      return list;
+    }
+
+    function renderSituation() {
+      $('gradeValue').textContent = fmtGrade(state.grade);
+      var box = $('savedChoicesValue');
+      clear(box);
+      var saved = state.savedChoices;
+      if (Array.isArray(saved) && saved.length) {
+        box.appendChild(rankingNode(saved));
+        var at = parseIso(state.savedAt);
+        $('savedAtValue').textContent = at !== null ? 'Enregistrés ' + fmtShort(at) + '.' : '';
+      } else {
+        box.appendChild(el('span', 'text-sm text-slate-700', "Aucun choix enregistré pour l'instant."));
+        $('savedAtValue').textContent = '';
+      }
+    }
+
+    function renderDeadline() {
+      var dl = deadlineMs();
+      var locked = isLocked();
+      var box = $('deadlineBox');
+      var value = $('deadlineValue');
+      var countdown = $('countdownValue');
+      var note = $('deadlineNote');
+      var tone = 'border-slate-200 bg-slate-50';
+      var noteCls = 'text-slate-600';
+      var countdownText = '';
+
+      if (dl === null) {
+        if (locked) {
+          value.textContent = 'Enregistrement fermé';
+          note.textContent = 'Les enregistrements sont fermés. Vous pouvez encore prévisualiser.';
+          tone = 'border-red-200 bg-red-50'; noteCls = 'text-red-800';
+        } else {
+          value.textContent = 'Non fixée';
+          note.textContent = "Aucune date limite n'a été fixée pour l'instant. Vous pouvez modifier vos choix à tout moment.";
+        }
+      } else {
+        value.textContent = fmtLong(dl);
+        var left = dl - serverNow();
+        if (left <= 0) {
+          note.textContent = 'Date limite dépassée : les enregistrements sont fermés.';
+          tone = 'border-red-200 bg-red-50'; noteCls = 'text-red-800';
+        } else if (locked) {
+          note.textContent = 'Les enregistrements sont fermés pour le moment.';
+          tone = 'border-red-200 bg-red-50'; noteCls = 'text-red-800';
+        } else {
+          countdownText = 'Il reste ' + fmtCountdown(left);
+          note.textContent = 'Vous pouvez modifier vos choix jusqu’à cette date.';
+          if (left < 3600000) { tone = 'border-red-200 bg-red-50'; noteCls = 'text-red-800'; }
+          else if (left < 86400000) { tone = 'border-amber-200 bg-amber-50'; noteCls = 'text-amber-900'; }
+          else { tone = 'border-blue-200 bg-blue-50'; noteCls = 'text-blue-900'; }
+        }
+      }
+      box.className = 'mt-4 rounded-xl border p-4 ' + tone;
+      countdown.textContent = countdownText;
+      countdown.className = 'mt-1 text-lg font-bold tabular ' + noteCls;
+      show(countdown, countdownText !== '');
+      note.className = 'mt-1 text-sm ' + noteCls;
+    }
+
+    function reasonLine(reason, prefix) {
+      var label = REASON_LABELS[reason];
+      if (!label) return null;
+      var p = el('p', 'mt-3 inline-flex flex-wrap items-center gap-x-1.5 rounded-md bg-white/70 border border-slate-200 px-2.5 py-1 text-sm');
+      append(p, el('span', 'text-slate-500', prefix), el('span', 'font-semibold text-slate-800', label));
+      return p;
+    }
+
+    function renderProjection() {
+      var p = state.projection || { status: 'NO_CHOICES', choices: null, message: '' };
+      var ui = STATUS_UI[p.status] || STATUS_UI.UNKNOWN;
+      var box = $('projBox');
+      clear(box);
+      box.className = 'rounded-xl p-4 sm:p-5 border transition-colors ' + ui.box;
+
+      var hasChoices = p.status !== 'NO_CHOICES' && Array.isArray(p.choices) && p.choices.length === 3;
+
+      // En-tête : statut + enregistré / non enregistré
+      var head = el('div', 'flex flex-wrap items-center justify-between gap-2 mb-3');
+      head.appendChild(el('span', 'text-xs font-semibold uppercase tracking-wider text-slate-500', 'Statut de la projection'));
+      var pills = el('span', 'flex flex-wrap gap-1.5');
+      if (hasChoices) {
+        pills.appendChild(p.isSaved
+          ? el('span', 'px-2.5 py-1 text-xs font-semibold rounded-full bg-white text-slate-600 border border-slate-200', 'Enregistré')
+          : el('span', 'px-2.5 py-1 text-xs font-bold rounded-full bg-white text-amber-800 border border-amber-400 border-dashed', 'Non enregistré'));
+      }
+      pills.appendChild(el('span', 'px-3 py-1 text-xs font-bold rounded-full uppercase tracking-wide ' + ui.pill, ui.label));
+      head.appendChild(pills);
+      box.appendChild(head);
+
+      var best = p.bestBranch || '—';
+      var worst = p.worstBranch || '—';
+      var title = el('h3', 'text-lg font-bold mb-2 break-words ' + ui.title);
+
+      if (p.status === 'NO_CHOICES') {
+        title.textContent = 'Aucun choix à projeter';
+        box.appendChild(title);
+        box.appendChild(el('p', 'text-sm text-slate-700 mb-2', "Classez les 3 filières à l'étape 1, puis appuyez sur « Prévisualiser l'affectation » pour voir où votre note vous place."));
+      } else if (p.status === 'SECURE') {
+        title.textContent = 'Projeté pour : ' + best;
+        box.appendChild(title);
+      } else if (p.status === 'FALLBACK_SECURED') {
+        title.textContent = 'Affectation stable : ' + best;
+        box.appendChild(title);
+        box.appendChild(reasonLine(p.reason, hasChoices ? 'Pourquoi pas ' + p.choices[0] + ' ?' : 'Raison :'));
+      } else if (p.status === 'VULNERABLE') {
+        append(title,
+          el('span', 'block sm:inline', 'Au mieux : ' + best),
+          el('span', 'hidden sm:inline text-amber-700', ' · '),
+          el('span', 'block sm:inline', 'Au pire : ' + worst));
+        box.appendChild(title);
+        box.appendChild(el('p', 'text-sm text-slate-700', 'Au mieux : les étudiants encore inconnus passent derrière vous. Au pire : ils passent devant vous et font les choix les plus défavorables pour vous. Voir « Fiabilité de la projection ».'));
+        box.appendChild(reasonLine(p.reason, 'Raison du pire cas :'));
+      } else {
+        title.textContent = 'Statut inconnu';
+        box.appendChild(title);
+      }
+
+      if (p.message) box.appendChild(el('p', 'mt-3 text-slate-700 text-sm leading-relaxed break-words', p.message));
+
+      if (hasChoices) {
+        var forWrap = el('div', 'mt-4');
+        forWrap.appendChild(el('div', 'text-xs font-semibold text-slate-500 mb-1.5', 'Classement simulé'));
+        forWrap.appendChild(rankingNode(p.choices));
+        box.appendChild(forWrap);
+      }
+
+      if (hasChoices && !p.isSaved) {
+        var warn = el('div', 'mt-4 rounded-md border border-dashed border-amber-400 bg-white p-3 text-sm text-slate-700');
+        warn.appendChild(el('p', 'font-semibold text-amber-900', 'Résultat non enregistré'));
+        warn.appendChild(el('p', 'mt-1', 'Cette simulation porte sur un classement que vous n’avez pas enregistré. Vos choix enregistrés n’ont pas changé :'));
+        var saved = state.savedChoices;
+        var savedWrap = el('div', 'mt-2');
+        if (Array.isArray(saved) && saved.length) savedWrap.appendChild(rankingNode(saved));
+        else savedWrap.appendChild(el('span', 'italic text-slate-600', 'aucun choix enregistré.'));
+        warn.appendChild(savedWrap);
+        if (!isLocked()) warn.appendChild(el('p', 'mt-2 text-xs text-slate-500', 'Pour garder ce classement, appuyez sur « Enregistrer mes choix ».'));
+        box.appendChild(warn);
+      }
+    }
+
+    function coverageTile(label, value, hint, warn) {
+      var t = el('div', 'rounded-xl border p-3.5 min-w-0 ' + (warn ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50'));
+      append(t,
+        el('div', 'text-xs font-semibold text-slate-600', label),
+        el('div', 'text-xl font-bold tabular ' + (warn ? 'text-amber-900' : 'text-slate-900'), value),
+        el('div', 'text-xs text-slate-500 mt-0.5', hint));
+      return t;
+    }
+
+    function renderCoverage() {
+      var body = $('coverageBody');
+      clear(body);
+      var c = state.coverage;
+      if (!c) {
+        body.appendChild(el('p', 'text-sm text-slate-500', 'Données de fiabilité indisponibles.'));
+        return;
+      }
+      var N = num(c.classSize), gs = num(c.gradesSubmitted), miss = num(c.missingGrades);
+      var cs = num(c.choicesSaved), und = num(c.undecidedAbove), tied = num(c.tied);
+
+      // [V2] Liste officielle complète : la barre suit les choix enregistrés de la promotion ;
+      // la tuile « Notes manquantes » n'apparaît que s'il en manque.
+      var top = el('div', 'mb-4');
+      var row = el('div', 'flex items-baseline justify-between gap-3 text-sm');
+      append(row, el('span', 'text-slate-600', 'Choix enregistrés dans la promotion'),
+        el('span', 'font-bold text-slate-900 tabular', fmtInt(cs) + ' / ' + fmtInt(N)));
+      var bar = el('div', 'mt-2 h-2 rounded-full bg-slate-100 overflow-hidden');
+      var fill = el('div', 'h-full rounded-full bg-blue-600');
+      fill.style.width = (N && cs !== null ? Math.min(100, Math.round(cs / N * 100)) : 0) + '%';
+      bar.appendChild(fill);
+      append(top, row, bar);
+      body.appendChild(top);
+
+      var grid = el('div', 'grid grid-cols-2 gap-3');
+      append(grid,
+        miss > 0 ? coverageTile('Notes manquantes', fmtInt(miss), 'rang inconnu : ils peuvent être devant vous', true) : null,
+        coverageTile('Indécis devant vous', fmtInt(und), 'note supérieure à la vôtre, aucun choix enregistré', und > 0),
+        coverageTile('Égalités', fmtInt(tied), 'même note que vous : départage inconnu', tied > 0));
+      body.appendChild(grid);
+
+      var parts = [];
+      if (miss > 0) parts.push(plural(miss, 'étudiant sans note', 'étudiants sans note'));
+      if (und > 0) parts.push(plural(und, 'indécis classé devant vous', 'indécis classés devant vous'));
+      if (tied > 0) parts.push(plural(tied, 'étudiant à égalité avec vous', 'étudiants à égalité avec vous'));
+      var expl = el('p', 'mt-4 text-sm text-slate-700 leading-relaxed');
+      if (!parts.length) {
+        expl.textContent = "Tous les étudiants qui pourraient passer devant vous ont une note et des choix enregistrés : la projection ne dépend plus d'inconnues, tant que personne ne modifie ses choix.";
+      } else {
+        append(expl,
+          el('strong', 'font-semibold text-slate-900', 'Pourquoi un résultat peut être « Incertain » : '),
+          'dans le pire cas, la simulation place devant vous ' + joinFr(parts) +
+          ', et retient, parmi tous les choix possibles de ceux dont les choix sont inconnus, le plus défavorable pour vous. Dans le meilleur cas, ils ne prennent pas votre place. ' +
+          'Si les deux cas mènent à des filières différentes, le résultat est « Incertain ». Il se précise à mesure que les notes et les choix arrivent.');
+      }
+      body.appendChild(expl);
+      body.appendChild(el('p', 'mt-3 text-xs text-slate-500', 'Ces chiffres se mettent à jour automatiquement chaque minute.'));
+    }
+
+    function renderStats() {
+      var tbody = $('statsTableBody');
+      clear(tbody);
+      var stats = state.stats || {};
+      getBranches().forEach(function (b) {
+        var s = stats[b] || {};
+        var tr = el('tr', 'bg-white hover:bg-slate-50 transition-colors');
+        var name = el('td', 'px-2.5 sm:px-4 py-3 font-medium text-slate-900 border-r border-slate-100'); // [V2] pastille
+        append(name, el('span', 'inline-block w-2 h-2 rounded-full mr-2 align-middle ' + BRANCH_DOTS[getBranches().indexOf(b) % BRANCH_DOTS.length]), b);
+        append(tr,
+          name,
+          el('td', 'px-2.5 sm:px-4 py-3 font-bold bg-blue-50/30 text-blue-900 border-r border-slate-100 tabular', fmtInt(num(s.c1) === null ? 0 : s.c1)),
+          el('td', 'px-2.5 sm:px-4 py-3 text-slate-600 border-r border-slate-100 tabular', fmtInt(num(s.c2) === null ? 0 : s.c2)),
+          el('td', 'px-2.5 sm:px-4 py-3 text-slate-600 tabular', fmtInt(num(s.c3) === null ? 0 : s.c3)));
+        tbody.appendChild(tr);
+      });
+
+      var c = state.coverage || {};
+      $('statsNote').textContent = 'Demande calculée à partir des choix enregistrés uniquement' +
+        (num(c.choicesSaved) !== null ? ' (' + plural(c.choicesSaved, 'étudiant', 'étudiants') + ')' : '') +
+        '. Les simulations non enregistrées ne comptent pas.';
+
+      var r = state.rules || {};
+      var min = num(r.minSeats), max = num(r.maxSeats), N = num(r.classSize);
+      var rules = $('rulesText');
+      clear(rules);
+      if (min !== null && max !== null) {
+        // [V2] Le plafond est la règle déterminante (le minimum ne joue que si N − 2 × max < min)
+        append(rules, el('strong', 'font-semibold text-slate-900', 'Règle des places : '),
+          'chaque filière accueille au plus ' + max + ' étudiants (plafond strict) et au moins ' + min + '.' +
+          (N !== null && N - 2 * max > min ? ' Avec ' + N + ' étudiants, chaque filière en reçoit donc au moins ' + (N - 2 * max) + " : c'est le plafond qui compte." : ''));
+      }
+    }
+
+    // =====================================================================
+    // Listes déroulantes
+    // =====================================================================
+    function buildOptions(branches) {
+      selects.forEach(function (sel) {
+        var keep = sel.value;
+        clear(sel);
+        var ph = el('option', null, '-- Sélectionner une filière --');
+        ph.value = '';
+        sel.appendChild(ph);
+        branches.forEach(function (b) {
+          var o = el('option', null, b);
+          o.value = b;
+          sel.appendChild(o);
+        });
+        sel.value = branches.indexOf(keep) !== -1 ? keep : '';
+      });
+      branchesKey = branches.join('|');
+      updateDropdownOptions();
+    }
+
+    function restoreDropdowns(saved, branches) {
+      if (!Array.isArray(saved) || saved.length !== selects.length) return;
+      var distinct = saved.filter(function (v, i) { return saved.indexOf(v) === i && branches.indexOf(v) !== -1; });
+      if (distinct.length !== selects.length) return;
+      selects.forEach(function (sel, i) { sel.value = saved[i]; });
+      updateDropdownOptions();
+    }
+
+    // Désactive dans chaque liste les filières déjà choisies dans une autre
+    function updateDropdownOptions() {
+      var vals = selects.map(function (s) { return s.value; });
+      selects.forEach(function (sel, i) {
+        Array.prototype.forEach.call(sel.options, function (o) {
+          if (!o.value) return;
+          var usedAt = -1;
+          vals.forEach(function (v, j) { if (j !== i && v === o.value) usedAt = j; });
+          o.disabled = usedAt !== -1;
+          o.textContent = usedAt !== -1 ? o.value + ' (déjà en ' + RANK_LABELS[usedAt] + ')' : o.value;
+        });
+      });
+    }
+
+    function getSelection() { return selects.map(function (s) { return s.value; }); }
+
+    function validateSelection() {
+      var v = getSelection();
+      var branches = getBranches();
+      selects.forEach(function (s) { if (s.value) s.removeAttribute('aria-invalid'); else s.setAttribute('aria-invalid', 'true'); });
+      if (v.some(function (x) { return !x; })) return { error: 'Choisissez une filière pour chacun des 3 rangs.' };
+      var unique = v.filter(function (x, i) { return v.indexOf(x) === i; });
+      if (unique.length !== v.length) return { error: 'Chaque filière ne peut apparaître qu’une seule fois dans votre classement.' };
+      if (v.some(function (x) { return branches.indexOf(x) === -1; })) return { error: 'Filière inconnue. Actualisez la page.' };
+      return { choices: v };
+    }
+
+    function updateSelectionStatus() {
+      var node = $('selectionStatus');
+      if (!isOk()) return;
+      var v = getSelection();
+      var saved = state.savedChoices;
+      var text = '';
+      var cls = 'text-xs min-h-[1rem] ';
+      if (v.every(function (x) { return !x; })) {
+        text = '';
+        cls += 'text-slate-500';
+      } else if (Array.isArray(saved) && sameChoices(v, saved)) {
+        text = 'Sélection identique à vos choix enregistrés.';
+        cls += 'text-slate-500';
+      } else {
+        text = isLocked()
+          ? 'Cette sélection n’est pas enregistrée (enregistrement fermé).'
+          : 'Cette sélection n’est pas enregistrée : appuyez sur « Enregistrer mes choix » pour la garder.';
+        cls += 'text-amber-800 font-medium';
+      }
+      node.className = cls;
+      node.textContent = text;
+    }
+
+    selects.forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        updateDropdownOptions();
+        sel.removeAttribute('aria-invalid');
+        if (errorKind === 'validation') clearError();
+        hideSaveNotice();
+        updateSelectionStatus();
+      });
+    });
+
+    // =====================================================================
+    // Actions de l'étudiant
+    // =====================================================================
+    $('preferencesForm').addEventListener('submit', function (e) { e.preventDefault(); });
+
+    $('clearBtn').addEventListener('click', function () {
+      selects.forEach(function (s) { s.value = ''; s.removeAttribute('aria-invalid'); });
+      updateDropdownOptions();
+      if (errorKind === 'validation') clearError();
+      hideSaveNotice();
+      updateSelectionStatus();
+      selects[0].focus();
+    });
+
+    previewBtn.addEventListener('click', function () {
+      if (action) return;
+      var r = validateSelection();
+      if (r.error) { showError(r.error, 'validation'); return; }
+      clearError();
+      hideSaveNotice();
+      call('previewOdds', r.choices, 'preview');
+    });
+
+    saveBtn.addEventListener('click', function () {
+      if (action) return;
+      if (isLocked()) { showError(lockReasonText(), 'validation'); return; }
+      var r = validateSelection();
+      if (r.error) { showError(r.error, 'validation'); return; }
+      clearError();
+      hideSaveNotice();
+      call('saveChoices', r.choices, 'save');
+    });
+
+    function showSaveNotice() {
+      var n = $('saveNotice');
+      var at = isOk() ? parseIso(state.savedAt) : null;
+      n.textContent = 'Vos choix ont été enregistrés' + (at !== null ? ' ' + fmtShort(at) : '') + '.';
+      show(n, true);
+      clearTimeout(noticeTimer);
+      noticeTimer = setTimeout(hideSaveNotice, 8000);
+    }
+    function hideSaveNotice() { clearTimeout(noticeTimer); show($('saveNotice'), false); }
+
+    function scrollToResult() {
+      if (!window.matchMedia('(max-width: 1023px)').matches) return;
+      var card = $('resultCard');
+      var r = card.getBoundingClientRect();
+      if (r.top < 0 || r.top > window.innerHeight * 0.5) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    $('refreshBtn').addEventListener('click', refresh);
+    $('noGradeRefreshBtn').addEventListener('click', refresh);
+    $('bootRetryBtn').addEventListener('click', refresh);
+
+    // =====================================================================
+    // Maquette locale (quand google.script.run est absent)
+    // Paramètres d'URL :
+    //   ?mock=SECURE | FALLBACK_SECURED | VULNERABLE | NO_CHOICES | NO_GRADE | LOCKED | ADMIN | PUBLISHED
+    //   &annonce=info | warning   annonce de la coordination ([V2])
+    //   &absent=1          avec PUBLISHED : étudiant absent de la feuille publiée ([V2])
+    //   &deadline=future | soon | past | none | <secondes>   (date limite relative)
+    //   &locked=1          fermeture « administrative » (sans dépasser la date)
+    //   &skew=<minutes>    décale l'horloge du faux serveur (horloge du téléphone fausse)
+    //   &fail=load | poll | preview | save   simule une erreur serveur
+    //   &poll=<secondes>   intervalle de polling raccourci   &delay=<ms> latence
+    // =====================================================================
+    function createMock() {
+      var q = new URLSearchParams(location.search);
+      var SCENARIOS = ['SECURE', 'FALLBACK_SECURED', 'VULNERABLE', 'NO_CHOICES', 'NO_GRADE', 'LOCKED', 'ADMIN', 'PUBLISHED']; // [V2]
+      var sc = String(q.get('mock') || 'SECURE').toUpperCase();
+      if (SCENARIOS.indexOf(sc) === -1) sc = 'SECURE';
+      var skewMs = (Number(q.get('skew')) || 0) * 60000;
+      var delay = q.has('delay') ? Math.max(0, Number(q.get('delay')) || 0) : 500;
+      var fail = String(q.get('fail') || '').toLowerCase();
+      var pollSec = Number(q.get('poll'));
+      var now = function () { return Date.now() + skewMs; };
+      var t0 = now();
+
+      var dlMode = String(q.get('deadline') || (sc === 'LOCKED' || sc === 'PUBLISHED' ? 'past' : 'future')).toLowerCase();
+      var OFFSETS = { future: (3 * 86400 + 5 * 3600 + 42 * 60) * 1000, soon: 15000, past: -2 * 3600 * 1000 };
+      var deadline;
+      if (dlMode === 'none') deadline = null;
+      else if (isFinite(Number(dlMode)) && dlMode !== '') deadline = t0 + Number(dlMode) * 1000;
+      else deadline = t0 + (OFFSETS[dlMode] !== undefined ? OFFSETS[dlMode] : OFFSETS.future);
+
+      // [V2] Mêmes filières, règles (12 / 26) et effectif (70) que le serveur ; liste officielle complète
+      var CY = 'Cybersécurité', RM = 'Réseaux Mobiles', SU = 'Systèmes Ubiquitaires';
+      var rules = { branches: [CY, RM, SU], minSeats: 12, maxSeats: 26, classSize: 70 };
+      var COVER = {
+        SECURE:           { gradesSubmitted: 70, undecidedAbove: 0, tied: 0 },
+        FALLBACK_SECURED: { gradesSubmitted: 70, undecidedAbove: 0, tied: 0 },
+        VULNERABLE:       { gradesSubmitted: 70, undecidedAbove: 4, tied: 1 },
+        NO_CHOICES:       { gradesSubmitted: 70, undecidedAbove: 9, tied: 2 },
+        NO_GRADE:         { gradesSubmitted: 70, undecidedAbove: 9, tied: 2 },
+        LOCKED:           { gradesSubmitted: 70, undecidedAbove: 0, tied: 0 },
+        PUBLISHED:        { gradesSubmitted: 70, undecidedAbove: 0, tied: 0 }
+      };
+      var others = {};
+      others[CY] = { c1: 19, c2: 9, c3: 6 };
+      others[RM] = { c1: 8, c2: 15, c3: 11 };
+      others[SU] = { c1: 7, c2: 10, c3: 17 };
+      var db = {
+        hasGrade: sc !== 'NO_GRADE',
+        grade: sc === 'VULNERABLE' ? 14.5 : 15.25,
+        saved: (sc === 'NO_CHOICES' || sc === 'NO_GRADE') ? null : [CY, SU, RM],
+        savedAt: new Date(t0 - 26 * 3600 * 1000).toISOString(),
+        adminLock: q.get('locked') === '1' || sc === 'PUBLISHED',
+        calls: 0
+      };
+      var FORM_URL = 'https://script.google.com/macros/s/EXEMPLE/exec?page=grades';
+      var BY_FIRST = {};
+      BY_FIRST[CY] = 'VULNERABLE';
+      BY_FIRST[RM] = 'FALLBACK_SECURED';
+      BY_FIRST[SU] = 'SECURE';
+      // [V2] Annonce et résultat officiel fictifs
+      var annLevel = String(q.get('annonce') || (sc === 'PUBLISHED' ? 'info' : '')).toLowerCase();
+      var ANNOUNCEMENT = (annLevel === 'info' || annLevel === 'warning') ? {
+        text: annLevel === 'warning'
+          ? 'Attention : la date limite a été avancée. Vérifiez vos choix enregistrés dès aujourd’hui.'
+          : (sc === 'PUBLISHED' ? 'Les résultats officiels sont en ligne. Une réunion de rentrée par spécialité aura lieu lundi à 9 h.' : 'Réunion d’information sur les trois spécialités jeudi à 10 h, amphithéâtre B.'),
+        level: annLevel, updatedAt: new Date(t0 - 3 * 3600 * 1000).toISOString()
+      } : null;
+      var OFFICIAL = sc === 'PUBLISHED'
+        ? { published: true, branch: q.get('absent') === '1' ? null : CY, choiceRank: q.get('absent') === '1' ? null : 1, publishedAt: new Date(t0 - 3600 * 1000).toISOString() }
+        : null;
+      var ADMIN_URL = 'https://script.google.com/a/macros/uit.ac.ma/s/EXEMPLE/exec';
+
+      function locked() { return db.adminLock || (deadline !== null && now() >= deadline); }
+
+      function project(ch) {
+        if (!ch) {
+          return { status: 'NO_CHOICES', choices: null, isSaved: false, bestBranch: null, worstBranch: null, reason: null,
+            message: "Vous n'avez encore enregistré aucun choix : il n'y a rien à projeter." };
+        }
+        var status = sc;
+        if (sc === 'NO_CHOICES' || sc === 'NO_GRADE') status = BY_FIRST[ch[0]] || 'SECURE';
+        if (sc === 'LOCKED' || sc === 'PUBLISHED') status = 'SECURE';
+        var p = { status: status, choices: ch.slice(), isSaved: sameChoices(ch, db.saved), reason: null };
+        if (status === 'SECURE') {
+          p.bestBranch = p.worstBranch = ch[0];
+          p.message = 'Avec les notes et les choix connus, vous obtenez ' + ch[0] + ' dans le meilleur comme dans le pire cas : les étudiants encore inconnus ne peuvent pas vous en priver.';
+        } else if (status === 'FALLBACK_SECURED') {
+          p.bestBranch = p.worstBranch = ch[1];
+          p.reason = 'QUOTA';
+          p.message = 'Même dans le meilleur cas, ' + ch[0] + " n'est pas atteignable : des étudiants classés après vous sont nécessaires pour remplir le minimum de 12 places d'une autre filière. Vous êtes affecté(e) à " + ch[1] + ' dans tous les cas.';
+        } else {
+          p.bestBranch = ch[0];
+          p.worstBranch = ch[1];
+          p.reason = 'CAPACITY';
+          p.message = 'Si les étudiants encore inconnus passent derrière vous, vous obtenez ' + ch[0] + '. S’ils passent devant vous et font les choix les plus défavorables, ' + ch[0] + ' est complet et vous obtenez ' + ch[1] + '.';
+        }
+        return p;
+      }
+
+      function buildState(choices) {
+        if (sc === 'ADMIN') return { access: 'ADMIN', adminUrl: ADMIN_URL }; // [V2]
+        if (!db.hasGrade) {
+          return { access: 'NO_GRADE', formUrl: FORM_URL,
+            message: "Aucune note n'est enregistrée pour votre compte. Soumettez d'abord votre note via le formulaire : le tableau de bord sera disponible ensuite." };
+        }
+        var stats = JSON.parse(JSON.stringify(others));
+        if (db.saved) { stats[db.saved[0]].c1++; stats[db.saved[1]].c2++; stats[db.saved[2]].c3++; }
+        var cov = COVER[sc];
+        var choicesSaved = rules.branches.reduce(function (n, b) { return n + stats[b].c1; }, 0); // [V2]
+        return {
+          access: 'OK', formUrl: FORM_URL,
+          grade: db.grade,
+          savedChoices: db.saved ? db.saved.slice() : null,
+          savedAt: db.saved ? db.savedAt : null,
+          deadline: deadline === null ? null : new Date(deadline).toISOString(),
+          locked: locked(),
+          serverTime: new Date(now()).toISOString(),
+          timeZone: 'Africa/Casablanca',
+          rules: rules,
+          stats: stats,
+          coverage: {
+            classSize: rules.classSize, gradesSubmitted: cov.gradesSubmitted,
+            missingGrades: rules.classSize - cov.gradesSubmitted, choicesSaved: choicesSaved,
+            undecidedAbove: cov.undecidedAbove, tied: cov.tied
+          },
+          projection: project(choices || db.saved),
+          announcement: ANNOUNCEMENT, // [V2]
+          official: OFFICIAL          // [V2]
+        };
+      }
+
+      function validate(ch) {
+        var ok = Array.isArray(ch) && ch.length === 3 &&
+          ch.every(function (b, i) { return rules.branches.indexOf(b) !== -1 && ch.indexOf(b) === i; });
+        if (!ok) throw new Error('Choix invalides : classez les 3 filières, chacune une seule fois.');
+      }
+
+      // Bandeau du mode démo, avec des liens vers chaque scénario
+      var banner = $('mockBanner');
+      append(banner, el('strong', 'font-semibold text-slate-800', 'Mode démo'),
+        ' — google.script.run est absent : données fictives. Scénarios : ');
+      [['SECURE', '?mock=SECURE'], ['FALLBACK_SECURED', '?mock=FALLBACK_SECURED'], ['VULNERABLE', '?mock=VULNERABLE'],
+       ['NO_CHOICES', '?mock=NO_CHOICES'], ['NO_GRADE', '?mock=NO_GRADE'], ['LOCKED', '?mock=LOCKED'],
+       ['fermé sans date', '?mock=SECURE&deadline=none&locked=1'], ['sans date limite', '?mock=SECURE&deadline=none'],
+       ['échéance 15 s', '?mock=SECURE&deadline=soon'], ['erreur enregistrement', '?mock=VULNERABLE&fail=save'],
+       ['ADMIN', '?mock=ADMIN'], ['PUBLISHED', '?mock=PUBLISHED'], ['absent de la liste publiée', '?mock=PUBLISHED&absent=1'],
+       ['annonce', '?mock=VULNERABLE&annonce=warning']
+      ].forEach(function (s, i) {
+        if (i) banner.appendChild(document.createTextNode(' · '));
+        var a = el('a', 'underline', s[0]);
+        a.href = s[1];
+        banner.appendChild(a);
+      });
+      show(banner, true);
+
+      return {
+        pollMs: pollSec > 0 ? pollSec * 1000 : 0,
+        run: function (onOk, onFail) {
+          function respond(fn) {
+            setTimeout(function () {
+              var out;
+              try { out = JSON.parse(JSON.stringify(fn())); } catch (e) { onFail(e); return; }
+              onOk(out);
+            }, delay);
+          }
+          return {
+            getDashboardState: function (choices) {
+              respond(function () {
+                db.calls++;
+                if (fail === 'load' && db.calls === 1) throw new Error('Le serveur est occupé. Réessayez dans quelques secondes.');
+                if (fail === 'poll' && db.calls > 1) throw new Error('Le serveur est occupé. Réessayez dans quelques secondes.');
+                if (choices) validate(choices);
+                return buildState(choices);
+              });
+            },
+            previewOdds: function (choices) {
+              respond(function () {
+                if (sc === 'ADMIN') throw new Error("Ce compte est un compte administrateur : il n'a pas de choix à prévisualiser ni à enregistrer."); // [V2]
+                if (fail === 'preview') throw new Error('Le serveur est occupé. Réessayez dans quelques secondes.');
+                if (!db.hasGrade) throw new Error("Soumettez d'abord votre note.");
+                validate(choices);
+                return buildState(choices);
+              });
+            },
+            saveChoices: function (choices) {
+              respond(function () {
+                if (sc === 'ADMIN') throw new Error("Ce compte est un compte administrateur : il n'a pas de choix à prévisualiser ni à enregistrer."); // [V2]
+                if (fail === 'save') throw new Error("Le serveur est occupé : vos choix n'ont pas été enregistrés. Réessayez dans quelques secondes.");
+                if (!db.hasGrade) throw new Error("Soumettez d'abord votre note.");
+                validate(choices);
+                if (locked()) throw new Error('Les enregistrements sont fermés : vos choix ne peuvent plus être modifiés.');
+                db.saved = choices.slice();
+                db.savedAt = new Date(now()).toISOString();
+                return buildState(null);
+              });
+            }
+          };
+        }
+      };
+    }
+
+    // =====================================================================
+    // Démarrage
+    // =====================================================================
+    buildOptions(DEFAULT_BRANCHES);
+    syncBusyUI();
+    setInterval(tick, 1000);
+    call('getDashboardState', null, 'load');
+  })();
+  </script>
+</body>
+</html>
