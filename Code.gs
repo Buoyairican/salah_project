@@ -1988,11 +1988,17 @@ function adminExport(kind) {
   return { filename: base + '_' + stamp + '.csv', mimeType: 'text/csv;charset=utf-8', content: toCsv_(table) };
 }
 
-// CSV : UTF-8 avec BOM, « ; », virgule décimale, CRLF, textes entre guillemets, garde anti-formule
+// CSV : UTF-8 avec BOM, « ; », virgule décimale, CRLF, textes entre guillemets, garde anti-formule.
+// [V2] Un nombre décimal (« 17,74 ») est lui aussi entre guillemets : un tableur réglé pour couper
+// aussi sur la virgule le séparerait sinon en deux cellules et décalerait toute la ligne d'une colonne.
 function toCsv_(table) {
-  return '﻿' + table.map(function(row) {
+  return '\uFEFF' + table.map(function(row) {
     return row.map(function(v) {
-      if (typeof v === 'number' && isFinite(v)) return String(v).replace('.', ',');
+      if (typeof v === 'number' && isFinite(v)) {
+        // Deux décimales, comme à l'écran (« 15,125 » serait lu 15125 par un tableur non français)
+        const n = String(Math.round(v * 100) / 100).replace('.', ',');
+        return n.indexOf(',') === -1 ? n : '"' + n + '"';
+      }
       let s = String(v === undefined || v === null ? '' : v);
       if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
       return '"' + s.replace(/"/g, '""') + '"';

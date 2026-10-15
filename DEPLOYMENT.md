@@ -98,7 +98,7 @@ The bar under the header shows the campaign phase: *Préparation → Choix ouver
 
 **About the rules.** With 70 students and a cap of 26 per branch, every branch necessarily gets at least 70 − 2 × 26 = **18** students, so the minimum of 12 never matters — **the cap decides**. Use **Simulation des règles** to try another cap (nothing is saved until you click *Appliquer ces règles*); it shows who would change branch.
 
-**Exports** (*Résultats officiels → Exports CSV*, and buttons on other pages) open directly in Excel: UTF-8, `;` separator, decimal comma. If your browser blocks the download inside the Apps Script page, use *Afficher le contenu* in the notification and copy it.
+**Exports** (*Résultats officiels → Exports CSV*, and buttons on other pages) open directly in French Excel: UTF-8, `;` separator, decimal comma, grades rounded to 2 decimals and written in quotes (`"17,74"`), so an import that also splits on commas can no longer shift the columns. In **LibreOffice**, the Text Import dialog ticks Tab, Comma and Semicolon by default: tick **Semicolon only**, set **Language** to *French*, keep the string delimiter `"` and leave *Format quoted field as text* unticked, otherwise grades arrive as text. If your browser blocks the download inside the Apps Script page, use *Afficher le contenu* in the notification and copy it.
 
 ## 8. Reference
 
@@ -182,6 +182,7 @@ Open `Admin.html` or `Dashboard.html` directly in a browser: without `google.scr
 | *« Serveur occupé, réessayez dans quelques secondes. »* | Many simultaneous saves; the script lock waited 10 s. Retry. |
 | Reminders say *Service d'envoi indisponible* | Run any function once from the editor and accept the e-mail permission. |
 | *« Dépubliez d'abord les résultats. »* | Expected while results are published. Unpublish first (*Résultats officiels → 3*). |
+| A CSV opens with every column after `Note` shifted one place right | The file was exported before the CSV fix: its grades were unquoted and the import also split on commas (`17,74` → `17` \| `74`). Deploy the current code (new version) and export again; splitting lost leading zeros (`16,09` → `16` \| `9`), so don't repair old files by hand. With old files, import with *Semicolon* as the only separator. |
 | A student is listed under *Lignes écartées* | Empty name, duplicate name or unreadable grade on that line of `Responses`. The student cannot log in until it is fixed. |
 | The admin sees the waiting page | Their address is not in `ADMIN_EMAILS` (check spelling), or they are signed in with another Google account. |
 
@@ -214,7 +215,7 @@ The code was exercised outside Google's runtime, in a Node.js emulation of the A
 
 - **Projection equivalence:** 30 random classes (36 to 70 students, many ties and undecided students) — the new `buildState_` returns exactly the same `projection`, `coverage`, `stats` and `rules` as the previous code: 18,630 fields compared, 0 differences.
 - **`selfTest`** passes, and its property (b) also holds on 25 other random seeds (1,600 students).
-- **200 assertions** on routing, access control (every `admin…` function refuses students and anonymous callers), each endpoint, the publication guards, CSV format, e-mail matching, reminders and quota, journal paging, JSON-safety of every response, and absence of formulas in written cells.
+- **201 assertions** on routing, access control (every `admin…` function refuses students and anonymous callers), each endpoint, the publication guards, CSV format (no unquoted decimal anywhere), e-mail matching, reminders and quota, journal paging, JSON-safety of every response, and absence of formulas in written cells.
 - **Both pages driven in Chromium** against the emulated server (not only their demo data): every tab, dialogs, tie-break, simulation, close → freeze → publish, export download, then the student's official result.
 
 It has **not** been run on Google's servers. Steps 4 and 6 above are the first real-environment checks; do them before opening the page to students.
