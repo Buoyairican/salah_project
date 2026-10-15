@@ -2342,7 +2342,7 @@
     }
 
     function showFileContent(file) {
-      var ta = h('textarea', { rows: '14', readonly: 'readonly', class: inputCls('font-mono text-xs'), value: file.content.replace(/^﻿/, '') });
+      var ta = h('textarea', { rows: '14', readonly: 'readonly', class: inputCls('font-mono text-xs'), value: file.content.replace(/^\uFEFF/, '') });
       openDialog({
         title: file.filename, wide: true, intro: 'Copiez ce contenu dans un fichier .csv, ou collez-le dans un tableur (séparateur « ; »).', body: ta,
         confirmLabel: 'Copier', cancelLabel: 'Fermer',
@@ -2787,10 +2787,14 @@
         });
       }
 
+      // Même format que toCsv_ (Code.gs) : décimales entre guillemets pour ne jamais décaler les colonnes
       function toCsv(table) {
-        return '﻿' + table.map(function (row) {
+        return '\uFEFF' + table.map(function (row) {
           return row.map(function (v) {
-            if (typeof v === 'number' && isFinite(v)) return String(v).replace('.', ',');
+            if (typeof v === 'number' && isFinite(v)) {
+              var n = String(v).replace('.', ',');
+              return n.indexOf(',') === -1 ? n : '"' + n + '"';
+            }
             var str = String(v === undefined || v === null ? '' : v);
             if (/^[=+\-@\t\r]/.test(str)) str = "'" + str;
             return '"' + str.replace(/"/g, '""') + '"';
