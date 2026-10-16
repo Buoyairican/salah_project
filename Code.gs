@@ -91,8 +91,7 @@ const REASON_REQUIRED_MESSAGE = 'Indiquez la raison de cette décision (obligato
 
 function doGet(e) {
   // [V2] Routage par rôle : l'adresse est lue en premier.
-  // Administrateur → Admin ; hors domaine → page d'erreur ;
-  // étudiant → Dashboard si STUDENT_PAGE_OPEN, sinon la page d'attente (texte inchangé).
+  // Administrateur → Admin ; hors domaine → page d'erreur ; étudiant → Dashboard (ouvert ou en attente).
   const email = activeEmail_();
   const props = scriptProps_();
 
@@ -111,26 +110,14 @@ function doGet(e) {
       'déconnectez-vous ou ouvrez une fenêtre de navigation privée, puis rouvrez le lien.</p>');
   }
 
-  if (studentPageOpen_(props)) {
-    return HtmlService.createHtmlOutputFromFile('Dashboard')
-      .setTitle(PAGE_TITLE)
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-  }
-
-  // Page d'attente : texte inchangé, annonce éventuelle affichée dessous (échappée)
-  const ann = announcement_(props);
-  let annHtml = '';
-  if (ann) {
-    const warn = ann.level === 'warning';
-    annHtml = '<div style="margin-top:24px;padding:14px 16px;border-radius:10px;text-align:left;font-size:.95rem;line-height:1.6;white-space:pre-line;' +
-      (warn ? 'background:#fffbeb;border:1px solid #fcd34d;color:#78350f;' : 'background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;') + '">' +
-      escapeHtml_(ann.text) + '</div>';
-  }
-  return simplePage_(PAGE_TITLE,
-    '<p style="margin:0;font-size:1.25rem;font-weight:500;color:#1e293b;line-height:1.5;">' + escapeHtml_(WAITING_TEXT) + '</p>' + annHtml);
+  // [V2] Les étudiants reçoivent toujours le Dashboard. Page fermée : il affiche la page d'attente
+  // (texte inchangé + annonce) et se met à jour seul, dans les deux sens, à chaque actualisation.
+  return HtmlService.createHtmlOutputFromFile('Dashboard')
+    .setTitle(PAGE_TITLE)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-// [V2] Petite page autonome (attente, connexion requise) au style sobre de l'établissement
+// [V2] Petite page autonome (connexion requise) au style sobre de l'établissement
 function simplePage_(title, innerHtml) {
   const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>' + escapeHtml_(title) + '</title></head>' +
     '<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;' +
@@ -284,7 +271,7 @@ function choicesLock_(props) {
   // [V2] props optionnel (lecture groupée des propriétés) ; champs ajoutés pour l'administration
   props = props || scriptProps_();
   const flag = String(props[LOCKED_PROPERTY] || '').trim().toLowerCase();
-  const manual = flag !== '' && ['false', '0', 'non', 'no', 'off'].indexOf(flag) === -1;
+  const manual = flag !== '' && LOCK_OFF_VALUES.indexOf(flag) === -1;
   const published = !!publishedSheet_(props);
   const raw = String(props[DEADLINE_PROPERTY] || '').trim();
   const out = { deadline: null, locked: manual, manualLock: manual, deadlinePassed: false, deadlineInvalid: false, published: published };
@@ -373,6 +360,60 @@ function requireOwnerOrAdmin_() {
   try { owner = String(Session.getEffectiveUser().getEmail() || '').toLowerCase().trim(); } catch (e) { owner = ''; }
   if (isAdmin_(active) || (active !== '' && active === owner)) return active;
   throw new Error(ACCESS_DENIED_MESSAGE);
+}
+
+// [V2] Propriétés gérées par l'interface. Une propriété absente vaut sa valeur par défaut (définie ici,
+// dans le code) : désactiver un réglage ou le remettre par défaut SUPPRIME la propriété, si bien
+// qu'aucune ancienne valeur ne peut rester figée (ni masquer un changement des valeurs par défaut).
+const MANAGED_PROPERTIES = [ADMIN_EMAILS_PROPERTY, STUDENT_PAGE_OPEN_PROPERTY, DEADLINE_PROPERTY, LOCKED_PROPERTY,
+  MIN_SEATS_PROPERTY, MAX_SEATS_PROPERTY, UNDECIDED_POLICY_PROPERTY, ANNOUNCEMENT_PROPERTY,
+  FROZEN_SHEETS_PROPERTY, PUBLISHED_SHEET_PROPERTY, PUBLIC_URL_PROPERTY];
+const LOCK_OFF_VALUES = ['false', '0', 'non', 'no', 'off'];
+
+// Interrupteur : activé → 'true' ; désactivé → propriété supprimée
+function setFlag_(key, on) {
+  const store = PropertiesService.getScriptProperties();
+  if (on) store.setProperty(key, 'true');
+  else store.deleteProperty(key);
+}
+
+// Valeur égale à la valeur par défaut (ou vide) → propriété supprimée
+function setOrDefault_(key, value, defaultValue) {
+  const store = PropertiesService.getScriptProperties();
+  const v = value === null || value === undefined ? '' : String(value);
+  if (v === '' || v === String(defaultValue)) store.deleteProperty(key);
+  else store.setProperty(key, v);
+}
+
+// Propriétés présentes mais inutiles : elles valent la valeur par défaut, ou sont vides / illisibles
+// au point d'être ignorées. Une date limite illisible n'en fait pas partie (elle verrouille les choix).
+function staleSettings_(props) {
+  const out = [];
+  const has = function(k) { return props[k] !== undefined && props[k] !== null; };
+  const raw = function(k) { return String(props[k]).trim(); };
+  if (has(ADMIN_EMAILS_PROPERTY)) {
+    const list = adminEmails_({ [ADMIN_EMAILS_PROPERTY]: props[ADMIN_EMAILS_PROPERTY] }).slice().sort().join(',');
+    if (!raw(ADMIN_EMAILS_PROPERTY) || list === DEFAULT_ADMIN_EMAILS.slice().sort().join(',')) out.push(ADMIN_EMAILS_PROPERTY);
+  }
+  if (has(STUDENT_PAGE_OPEN_PROPERTY) && !isTrue_(props[STUDENT_PAGE_OPEN_PROPERTY])) out.push(STUDENT_PAGE_OPEN_PROPERTY);
+  if (has(LOCKED_PROPERTY) && (raw(LOCKED_PROPERTY) === '' || LOCK_OFF_VALUES.indexOf(raw(LOCKED_PROPERTY).toLowerCase()) !== -1)) out.push(LOCKED_PROPERTY);
+  if (has(DEADLINE_PROPERTY) && raw(DEADLINE_PROPERTY) === '') out.push(DEADLINE_PROPERTY);
+  if (has(MIN_SEATS_PROPERTY) && parseSeats_(props[MIN_SEATS_PROPERTY], MIN_SEATS, MIN_SEATS_PROPERTY) === MIN_SEATS) out.push(MIN_SEATS_PROPERTY);
+  if (has(MAX_SEATS_PROPERTY) && parseSeats_(props[MAX_SEATS_PROPERTY], MAX_SEATS, MAX_SEATS_PROPERTY) === MAX_SEATS) out.push(MAX_SEATS_PROPERTY);
+  if (has(UNDECIDED_POLICY_PROPERTY) && raw(UNDECIDED_POLICY_PROPERTY).toUpperCase() !== 'MANUAL') out.push(UNDECIDED_POLICY_PROPERTY);
+  if (has(ANNOUNCEMENT_PROPERTY) && !announcement_(props)) out.push(ANNOUNCEMENT_PROPERTY);
+  if (has(FROZEN_SHEETS_PROPERTY) && !frozenSheets_(props).length) out.push(FROZEN_SHEETS_PROPERTY);
+  if (has(PUBLISHED_SHEET_PROPERTY) && !publishedSheet_(props)) out.push(PUBLISHED_SHEET_PROPERTY);
+  if (has(PUBLIC_URL_PROPERTY) && !/^https:\/\//i.test(raw(PUBLIC_URL_PROPERTY))) out.push(PUBLIC_URL_PROPERTY);
+  return out;
+}
+
+// Inventaire pour l'administration : valeur brute de chaque propriété gérée présente
+function settingsReport_(props) {
+  const stale = staleSettings_(props);
+  return MANAGED_PROPERTIES.filter(function(k) { return props[k] !== undefined && props[k] !== null; }).map(function(k) {
+    return { key: k, value: String(props[k]).slice(0, 300), stale: stale.indexOf(k) !== -1 };
+  });
 }
 
 function isTrue_(v) {
@@ -860,7 +901,10 @@ function writeChoices_(ss, officialName, choices, now, source, author, logHistor
 function getDashboardState(choices) {
   // [V2] Contrôle administrateur AVANT tout appariement par nom
   if (isAdmin_(activeEmail_())) return { access: 'ADMIN', adminUrl: webAppUrl_() };
-  assertStudentPageOpen_();
+  // [V2] Page fermée : un état dédié (et non une erreur), pour qu'un onglet déjà ouvert bascule
+  // sur la page d'attente et cesse d'afficher d'anciennes données ou une annonce retirée.
+  const props = scriptProps_();
+  if (!studentPageOpen_(props)) return closedState_(props);
   const snap = loadSnapshot_();
   const name = currentUserName_(snap);
   return buildState_(snap, name, normalizeChoices_(choices));
@@ -920,6 +964,17 @@ function saveChoices(userChoices) {
     try { cache.put(cooldownKey, '1', SAVE_COOLDOWN_SECONDS); } catch (e) { Logger.log('Cooldown put failed: ' + e); }
     return buildState_(snap, officialName, choices);
   });
+}
+
+// [V2] Ce que voit un étudiant quand la page est fermée : texte d'attente et annonce, rien d'autre
+function closedState_(props) {
+  return {
+    access: 'CLOSED',
+    message: WAITING_TEXT,
+    announcement: announcement_(props),
+    serverTime: new Date().toISOString(),
+    timeZone: Session.getScriptTimeZone()
+  };
 }
 
 function buildState_(snap, officialName, requested) {
@@ -1632,7 +1687,8 @@ function buildOverview_(ctx) {
       announcement: announcement_(ctx.props),
       results: { frozen: frozen, published: publishedSheet_(ctx.props) },
       mail: mailInfo_(ctx.snap),
-      studentUrl: publicUrl_(ctx.props)
+      studentUrl: publicUrl_(ctx.props),
+      properties: settingsReport_(ctx.props) // [V2]
     },
     participation: participation_(rows, keys, histByKey, tz),
     demand: demand_(rows),
@@ -1738,9 +1794,17 @@ function health_(ctx, alloc) {
   }
   const known = {};
   rows.forEach(function(r) { known[squash_(r.h)] = true; });
+  // [V2] Feuille publiée supprimée à la main : les étudiants ne voient plus rien, les choix restent clos
+  const pub = publishedSheet_(ctx.props);
+  let publishedSheetMissing = false;
+  if (pub) {
+    try { publishedSheetMissing = !ctx.ss.getSheetByName(pub.sheet); } catch (e) { publishedSheetMissing = false; }
+  }
   return {
     loaded: rows.length,
     expected: CLASS_SIZE,
+    publishedSheetMissing: publishedSheetMissing,
+    staleProperties: staleSettings_(ctx.props),
     skipped: (snap.skipped || []).slice(),
     orphanPreferences: diag.orphanPreferences || [],
     duplicatePreferences: diag.duplicatePreferences || [],
@@ -2086,7 +2150,7 @@ function adminSetDeadline(local, unlock) {
     const store = PropertiesService.getScriptProperties();
     if (text) store.setProperty(DEADLINE_PROPERTY, text);
     else store.deleteProperty(DEADLINE_PROPERTY);
-    if (unlock) store.setProperty(LOCKED_PROPERTY, 'false');
+    if (unlock) store.deleteProperty(LOCKED_PROPERTY); // [V2] verrou levé = propriété supprimée
     const tz = Session.getScriptTimeZone();
     const open = !newManual && !newPassed;
     return {
@@ -2103,7 +2167,7 @@ function adminSetLocked(locked) {
   return adminWrite_(admin, 'VERROU', function(ss, props) {
     const lock = choicesLock_(props);
     if (!locked && lock.published) throw new Error(UNPUBLISH_FIRST_MESSAGE);
-    PropertiesService.getScriptProperties().setProperty(LOCKED_PROPERTY, locked ? 'true' : 'false');
+    setFlag_(LOCKED_PROPERTY, locked); // [V2] levé = propriété supprimée
     let notice;
     if (locked) notice = "Choix clos : plus aucun enregistrement étudiant n'est accepté.";
     else if (lock.deadlinePassed || lock.deadlineInvalid) notice = 'Verrou manuel levé, mais la date limite est dépassée : les choix restent clos. Repoussez la date limite pour les rouvrir.';
@@ -2116,7 +2180,7 @@ function adminSetStudentPageOpen(open) {
   const admin = requireAdmin_();
   if (typeof open !== 'boolean') throw new Error('Valeur invalide.');
   return adminWrite_(admin, 'PAGE_ETUDIANTE', function() {
-    PropertiesService.getScriptProperties().setProperty(STUDENT_PAGE_OPEN_PROPERTY, open ? 'true' : 'false');
+    setFlag_(STUDENT_PAGE_OPEN_PROPERTY, open); // [V2] fermée = propriété supprimée
     return {
       notice: open ? 'Page étudiante ouverte : les étudiants voient désormais le tableau de bord.' : "Page étudiante fermée : les étudiants voient la page d'attente.",
       details: open ? 'Page étudiante ouverte' : 'Page étudiante fermée'
@@ -2129,7 +2193,7 @@ function adminSetUndecidedPolicy(policy) {
   const p = String(policy || '').trim().toUpperCase();
   if (UNDECIDED_POLICIES.indexOf(p) === -1) throw new Error('Politique inconnue : choisissez LAST ou MANUAL.');
   return adminWrite_(admin, 'POLITIQUE_SANS_CHOIX', function() {
-    PropertiesService.getScriptProperties().setProperty(UNDECIDED_POLICY_PROPERTY, p);
+    setOrDefault_(UNDECIDED_POLICY_PROPERTY, p, 'LAST'); // [V2] LAST (défaut) = propriété supprimée
     return {
       notice: p === 'LAST'
         ? 'Les étudiants sans choix seront placés en dernier, dans les filières qui en ont le plus besoin.'
@@ -2154,7 +2218,9 @@ function adminSetRules(req) {
       if (perBranch[b] > max) throw new Error(perBranch[b] + ' affectations imposées en ' + b + ' dépassent ce plafond : retirez-en d\'abord.');
     });
     const before = rules_(props);
-    PropertiesService.getScriptProperties().setProperties({ [MIN_SEATS_PROPERTY]: String(min), [MAX_SEATS_PROPERTY]: String(max) });
+    // [V2] Une règle égale à sa valeur par défaut n'est pas stockée
+    setOrDefault_(MIN_SEATS_PROPERTY, min, MIN_SEATS);
+    setOrDefault_(MAX_SEATS_PROPERTY, max, MAX_SEATS);
     return {
       notice: 'Règles appliquées : au plus ' + max + ' et au moins ' + min + ' étudiants par filière. Les projections des étudiants changeront à leur prochaine actualisation.',
       details: 'Minimum ' + before.min + ' → ' + min + ' ; maximum ' + before.max + ' → ' + max
@@ -2312,7 +2378,11 @@ function adminFreezeAllocation(req) {
     sh.getRange(1, 1, 1, ALLOCATION_HEADERS.length).setFontWeight('bold');
     sh.setFrozenRows(1);
     try { sh.protect().setDescription('Affectation figée le ' + now.toISOString()).setWarningOnly(true); } catch (e) { Logger.log('Protection impossible : ' + e); }
-    const list = [{ sheet: name, at: now.toISOString(), by: admin }].concat(frozenSheets_(props)).slice(0, FROZEN_SHEETS_MAX);
+    // [V2] Les feuilles figées supprimées à la main disparaissent de la liste
+    const existing = ss.getSheets().map(function(x) { return x.getName(); });
+    const list = [{ sheet: name, at: now.toISOString(), by: admin }]
+      .concat(frozenSheets_(props).filter(function(f) { return existing.indexOf(f.sheet) !== -1; }))
+      .slice(0, FROZEN_SHEETS_MAX);
     PropertiesService.getScriptProperties().setProperty(FROZEN_SHEETS_PROPERTY, JSON.stringify(list));
     const counts = BRANCHES.map(function(b) { return b + ' ' + alloc.counts[b]; }).join(', ');
     return {
@@ -2356,6 +2426,25 @@ function adminUnpublishResults() {
       official: true
     };
   });
+}
+
+// [V2] Retire les propriétés qui valent leur valeur par défaut (ou sont vides / illisibles)
+function adminCleanSettings() {
+  const admin = requireAdmin_();
+  return adminWrite_(admin, 'REGLAGES_NETTOYES', function(ss, props) {
+    const stale = staleSettings_(props);
+    if (!stale.length) return { notice: 'Aucune propriété inutile : rien à retirer.', details: null };
+    const store = PropertiesService.getScriptProperties();
+    stale.forEach(function(k) { store.deleteProperty(k); });
+    return {
+      notice: plainCount_(stale.length, 'propriété inutile retirée', 'propriétés inutiles retirées') + ' : ' + stale.join(', ') + '.',
+      details: 'Propriétés retirées (valeur par défaut ou vide) : ' + stale.join(', ')
+    };
+  });
+}
+
+function plainCount_(n, one, many) {
+  return n + ' ' + (n <= 1 ? one : many);
 }
 
 function adminSendReminders(req) {
@@ -2411,8 +2500,8 @@ function adminSendReminders(req) {
 // =========================================================================
 
 /**
- * Crée les feuilles manquantes (avec en-têtes) et les propriétés par défaut.
- * Idempotent : ne remplace jamais une feuille, un en-tête ou une propriété existants.
+ * Crée les feuilles manquantes (avec en-têtes) et retire les propriétés inutiles (valeur par défaut).
+ * Idempotent : ne remplace jamais une feuille, un en-tête ou un réglage actif.
  */
 function setupSheets() {
   requireOwnerOrAdmin_();
@@ -2432,20 +2521,13 @@ function setupSheets() {
         done.push('en-tête « Email » ajouté en ' + SHEET_NAME + '!C1');
       }
     }
+    // [V2] Aucune valeur par défaut n'est plus écrite : une propriété absente vaut sa valeur par défaut.
+    // Celles qu'une version précédente avait figées à leur valeur par défaut sont retirées.
     const store = PropertiesService.getScriptProperties();
-    const props = store.getProperties();
-    const defaults = {
-      [ADMIN_EMAILS_PROPERTY]: DEFAULT_ADMIN_EMAILS.join(','),
-      [STUDENT_PAGE_OPEN_PROPERTY]: 'false',
-      [MIN_SEATS_PROPERTY]: String(MIN_SEATS),
-      [MAX_SEATS_PROPERTY]: String(MAX_SEATS),
-      [UNDECIDED_POLICY_PROPERTY]: 'LAST'
-    };
-    const missing = {};
-    Object.keys(defaults).forEach(function(k) {
-      if (props[k] === undefined || props[k] === null || props[k] === '') { missing[k] = defaults[k]; done.push('propriété ' + k + ' = ' + defaults[k]); }
+    staleSettings_(store.getProperties()).forEach(function(k) {
+      store.deleteProperty(k);
+      done.push('propriété ' + k + ' retirée (valeur par défaut ou vide)');
     });
-    if (Object.keys(missing).length) store.setProperties(missing);
     invalidateSnapshot_();
     invalidateTally_();
     const summary = done.length ? done.join(' ; ') : 'Rien à faire : tout est déjà en place.';

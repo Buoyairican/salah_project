@@ -166,9 +166,23 @@
       DATE_LIMITE: 'Date limite', VERROU: 'Verrou', PAGE_ETUDIANTE: 'Page étudiante', POLITIQUE_SANS_CHOIX: 'Étudiants sans choix',
       REGLES: 'Règles de répartition', ANNONCE: 'Annonce', DEPARTAGE: 'Départage', DEPARTAGE_SUPPRIME: 'Départage supprimé',
       CHOIX_ADMIN: 'Choix saisis', AFFECTATION_IMPOSEE: 'Affectation imposée', FIGER: 'Affectation figée',
-      PUBLIER: 'Publication', DEPUBLIER: 'Dépublication', RAPPELS: 'Rappels envoyés'
+      PUBLIER: 'Publication', DEPUBLIER: 'Dépublication', RAPPELS: 'Rappels envoyés', REGLAGES_NETTOYES: 'Réglages nettoyés'
     };
     var RANK_SHORT = ['1er', '2e', '3e'];
+    // Sens de chaque propriété du script (absente = valeur par défaut)
+    var PROPERTY_UI = {
+      ADMIN_EMAILS: 'Administrateurs (défaut : adresse inscrite dans le code)',
+      STUDENT_PAGE_OPEN: 'Page étudiante ouverte (absente = fermée)',
+      CHOICES_DEADLINE: 'Date limite (absente = aucune)',
+      CHOICES_LOCKED: 'Verrou manuel (absente = levé)',
+      MIN_SEATS: 'Minimum par filière (absente = 12)',
+      MAX_SEATS: 'Plafond par filière (absente = 26)',
+      UNDECIDED_POLICY: 'Étudiants sans choix (absente = placés en dernier)',
+      ANNOUNCEMENT: 'Annonce (absente = aucune)',
+      FROZEN_SHEETS: 'Affectations figées',
+      PUBLISHED_SHEET: 'Résultats publiés (absente = non publiés)',
+      PUBLIC_URL: 'Lien des rappels (absente = lien de l’application)'
+    };
     var ICONS = {
       home: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
       users: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z',
@@ -892,6 +906,7 @@
       return (x.skipped || []).length + (x.orphanPreferences || []).length + (x.duplicatePreferences || []).length +
         (x.invalidPreferences || []).length + (x.ambiguousNames || []).length + (x.badEmails || []).length +
         (x.staleOverrides || []).length + (x.forcedOverflow || []).length + (x.staleTieBreaks || []).length +
+        (x.staleProperties || []).length + (x.publishedSheetMissing ? 1 : 0) +
         (x.loaded !== x.expected ? 1 : 0);
     }
     function locked() { return !!ov.config.locked; }
@@ -911,6 +926,8 @@
     }
     function attentionItems() {
       var c = ov.config, items = [];
+      if (ov.health.publishedSheetMissing) items.push({ kind: 'danger', title: 'Feuille publiée supprimée', text: 'Les étudiants ne voient plus de résultat et les choix restent clos : dépubliez, puis publiez une autre affectation figée.', tab: 'results' });
+      if ((ov.health.staleProperties || []).length) items.push({ kind: 'warning', title: plural(ov.health.staleProperties.length, 'réglage figé inutilement', 'réglages figés inutilement'), text: 'Propriétés du script restées à leur valeur par défaut : retirez-les en un clic.', tab: 'health' });
       if (c.deadlineInvalid) items.push({ kind: 'danger', title: 'Date limite illisible', text: 'La propriété CHOICES_DEADLINE est invalide : les choix sont verrouillés. Redéfinissez la date limite.', tab: 'settings' });
       if (ov.allocation.unresolvedTies) items.push({ kind: 'danger', title: plural(ov.allocation.unresolvedTies, 'égalité décisive à départager', 'égalités décisives à départager'), text: "L'ordre alphabétique s'applique tant qu'aucun départage n'est enregistré.", tab: 'allocation' });
       if (ov.health.forcedOverflow && ov.health.forcedOverflow.length) items.push({ kind: 'danger', title: 'Affectations imposées au-delà du plafond', text: ov.health.forcedOverflow.join(', ') + ' : ignorées par le calcul.', tab: 'allocation' });
@@ -1838,7 +1855,8 @@
 
     function deadlineCard() {
       var c = ov.config;
-      if (!ui.deadline) {
+      // Brouillon : resynchronisé avec le serveur tant que vous ne l'avez pas modifié
+      if (!ui.deadline || !ui.deadline.dirty) {
         ui.deadline = c.deadlineLocal
           ? { date: c.deadlineLocal.slice(0, 10), time: c.deadlineLocal.slice(11, 16), unlock: false }
           : { date: '', time: '18:00', unlock: false };
@@ -1849,7 +1867,7 @@
       dateIn.addEventListener('input', function () { d.date = dateIn.value; d.dirty = true; });
       timeIn.addEventListener('input', function () { d.time = timeIn.value; d.dirty = true; });
       var unlockBox = h('input', { type: 'checkbox', checked: d.unlock, class: 'h-4 w-4 rounded border-slate-300 text-blue-700 focus:ring-blue-500' });
-      unlockBox.addEventListener('change', function () { d.unlock = unlockBox.checked; });
+      unlockBox.addEventListener('change', function () { d.unlock = unlockBox.checked; d.dirty = true; });
       var presets = [[1, 'Demain 18:00'], [3, 'Dans 3 jours'], [7, 'Dans 7 jours']].map(function (p) {
         return h('button', { type: 'button', class: 'rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50', text: p[1], onclick: function () {
           var sp = schoolParts(Date.now() + p[0] * 86400000);
@@ -1869,7 +1887,13 @@
         c.manualLock ? h('label', { class: 'mt-4 flex items-start gap-2 text-sm text-slate-700' }, [unlockBox, h('span', { text: 'Lever aussi le verrou manuel (rouvre les choix si la date est future)' })]) : null,
         h('div', { class: 'mt-4 flex flex-wrap gap-2' }, [
           btn('Enregistrer la date limite', { variant: 'primary', icon: 'check', disabled: !!busy, onClick: function () {
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date) || !/^\d{2}:\d{2}$/.test(d.time)) { toast('Saisissez une date et une heure complètes.', 'error'); return; }
+            // Date et heure vidées : c'est une suppression de la date limite (sinon l'ancienne resterait)
+            if (!d.date && !d.time) {
+              if (!c.deadline) { toast('Aucune date limite à enregistrer.', 'info'); return; }
+              confirmAction({ title: 'Supprimer la date limite ?', intro: 'Les champs sont vides : la date limite actuelle sera supprimée. Sans date limite, les choix restent modifiables jusqu’à une clôture manuelle.', confirmLabel: 'Supprimer', tone: 'danger', fn: 'adminSetDeadline', args: [null, false], onOk: function () { ui.deadline = null; } });
+              return;
+            }
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date) || !/^\d{2}:\d{2}$/.test(d.time)) { toast('Saisissez une date et une heure complètes (ou videz les deux champs pour supprimer la date limite).', 'error'); return; }
             var unlock = !!(c.manualLock && d.unlock);
             mutate('adminSetDeadline', [d.date + ' ' + d.time, unlock], { label: 'Enregistrement de la date limite…', onOk: function () { ui.deadline = null; } });
           } }),
@@ -1923,7 +1947,8 @@
 
     function announcementCard() {
       var cur = ov.config.announcement;
-      if (!ui.announcement) ui.announcement = { text: cur ? cur.text : '', level: cur ? cur.level : 'info' };
+      // Brouillon : resynchronisé avec le serveur tant que vous ne l'avez pas modifié
+      if (!ui.announcement || !ui.announcement.dirty) ui.announcement = { text: cur ? cur.text : '', level: cur ? cur.level : 'info', dirty: false };
       var a = ui.announcement;
       var ta = h('textarea', { rows: '4', maxlength: '400', class: inputCls('resize-y'), placeholder: 'Ex. : Réunion d’information jeudi à 10 h, amphi B.', value: a.text, id: 'annText' });
       var counter = h('span', { class: 'tabular' });
@@ -1940,9 +1965,9 @@
           ]));
         } else preview.appendChild(h('p', { class: 'text-sm text-slate-400 italic', text: 'Aperçu : aucune annonce.' }));
       }
-      ta.addEventListener('input', function () { a.text = ta.value; draw(); });
+      ta.addEventListener('input', function () { a.text = ta.value; a.dirty = true; draw(); });
       var levels = h('div', { class: 'inline-flex rounded-lg bg-slate-100 p-1 gap-1' }, [['info', 'Information'], ['warning', 'Avertissement']].map(function (l) {
-        return h('button', { type: 'button', class: 'rounded-md px-3 py-1.5 text-sm font-medium ' + (a.level === l[0] ? 'bg-white shadow-sm text-slate-900' : 'text-slate-600'), text: l[1], onclick: function () { a.level = l[0]; renderTab(); } });
+        return h('button', { type: 'button', class: 'rounded-md px-3 py-1.5 text-sm font-medium ' + (a.level === l[0] ? 'bg-white shadow-sm text-slate-900' : 'text-slate-600'), text: l[1], onclick: function () { a.level = l[0]; a.dirty = true; renderTab(); } });
       }));
       draw();
       return card('Annonce aux étudiants', cur ? 'En ligne depuis le ' + fmtDateTime(cur.updatedAt) + '.' : 'Aucune annonce en ligne.', [
@@ -1952,7 +1977,12 @@
           h('div', null, [h('div', { class: 'text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2', text: 'Aperçu côté étudiant' }), preview]),
           h('div', { class: 'flex flex-wrap gap-2 pt-1' }, [
             btn(cur ? 'Mettre à jour l’annonce' : 'Publier l’annonce', { variant: 'primary', icon: 'megaphone', disabled: !!busy, onClick: function () {
-              if (!a.text.trim()) { toast('Le message est vide.', 'error'); return; }
+              // Message vidé : c'est un retrait de l'annonce en ligne (sinon l'ancienne resterait affichée)
+              if (!a.text.trim()) {
+                if (!cur) { toast('Le message est vide.', 'error'); return; }
+                mutate('adminSetAnnouncement', [null], { label: 'Retrait de l’annonce…', onOk: function () { ui.announcement = null; } });
+                return;
+              }
               mutate('adminSetAnnouncement', [{ text: a.text, level: a.level }], { label: 'Publication de l’annonce…', onOk: function () { ui.announcement = null; } });
             } }),
             cur ? btn('Retirer', { variant: 'subtle', disabled: !!busy, onClick: function () { mutate('adminSetAnnouncement', [null], { onOk: function () { ui.announcement = null; } }); } }) : null
@@ -2253,6 +2283,25 @@
         verdict
       ]), { icon: 'search' });
 
+      // Réglages enregistrés : propriétés du script présentes, et celles qui ne servent à rien
+      var props = ov.config.properties || [];
+      var staleN = props.filter(function (p) { return p.stale; }).length;
+      var settings = card('Réglages enregistrés', 'Propriétés du script. Une propriété absente vaut sa valeur par défaut : désactiver un réglage ici la supprime.', [
+        props.length ? tableWrap(['Propriété', 'Valeur', 'État'], props.map(function (p) {
+          return h('tr', { class: 'align-top' }, [
+            td([h('div', { class: 'font-mono text-xs font-semibold text-slate-800', text: p.key }), h('div', { class: 'text-xs text-slate-500', text: PROPERTY_UI[p.key] || '' })]),
+            td(h('code', { class: 'text-xs text-slate-700 break-all', text: p.value })),
+            td(p.stale ? badge('Inutile', 'bg-amber-50 text-amber-800 ring-amber-200', 'Vaut la valeur par défaut, ou est vide / illisible') : badge('Actif', 'bg-emerald-50 text-emerald-700 ring-emerald-200'))
+          ]);
+        })) : h('p', { class: 'text-sm text-slate-500', text: 'Aucune propriété : tous les réglages sont à leur valeur par défaut.' }),
+        staleN ? h('div', { class: 'mt-4 flex flex-wrap items-center gap-3' }, [
+          btn('Retirer les propriétés inutiles (' + staleN + ')', { icon: 'trash', disabled: !!busy, onClick: function () {
+            confirmAction({ title: 'Retirer les propriétés inutiles ?', intro: 'Elles valent leur valeur par défaut (ou sont vides) : les retirer ne change rien au fonctionnement, mais évite qu’une ancienne valeur reste figée.', confirmLabel: 'Retirer', fn: 'adminCleanSettings', args: [] });
+          } })
+        ]) : null,
+        h('p', { class: 'mt-4 text-xs text-slate-500 leading-relaxed', text: 'Évitez de modifier ces propriétés à la main dans l’éditeur Apps Script (Paramètres du projet) : rechargez d’abord cette page de paramètres, car un formulaire ouvert avant un changement fait ici peut réécrire l’ancienne valeur.' })
+      ], { icon: 'table' });
+
       var ec = x.emailColumn || {};
       return [
         sectionHeader('Qualité des données', 'Contrôles automatiques de la liste officielle (Responses) et des choix enregistrés (Preferences).', [
@@ -2266,7 +2315,7 @@
         ]),
         h('div', { class: 'grid grid-cols-1 xl:grid-cols-2 gap-6 items-start' }, [
           h('div', { class: 'space-y-6 min-w-0' }, sections.length ? sections : [card('Contrôles', null, callout('success', 'Aucune anomalie détectée dans les feuilles.'), { icon: 'shield' })]),
-          h('div', { class: 'space-y-6 min-w-0' }, [tester])
+          h('div', { class: 'space-y-6 min-w-0' }, [settings, tester])
         ])
       ];
     }
@@ -2467,8 +2516,27 @@
         policy: 'LAST', min: 12, max: 26,
         announcement: sc === 'campagne' ? { text: 'Réunion d’information sur les trois spécialités jeudi à 10 h, amphithéâtre B. Enregistrez vos choix avant la date limite.', level: 'info', updatedAt: iso(t0 - 5 * HOUR) } : null,
         frozen: [], published: null, ties: {}, forced: {}, journal: [], quota: 94,
-        skipped: [], orphans: [], dups: [], invalid: [], badEmails: [], ambiguous: [], calls: 0
+        skipped: [], orphans: [], dups: [], invalid: [], badEmails: [], ambiguous: [], calls: 0,
+        // Propriétés figées à leur valeur par défaut par une version précédente de setupSheets
+        staleProps: sc === 'preparation' ? ['ADMIN_EMAILS', 'STUDENT_PAGE_OPEN', 'MIN_SEATS', 'MAX_SEATS', 'UNDECIDED_POLICY'] : (sc === 'campagne' || sc === 'anomalies' ? ['ADMIN_EMAILS', 'MIN_SEATS', 'MAX_SEATS', 'UNDECIDED_POLICY'] : [])
       };
+      function unstale(keys) { db.staleProps = db.staleProps.filter(function (k) { return keys.indexOf(k) === -1; }); }
+      // Propriétés du script telles que le serveur les rapporterait (absente = valeur par défaut)
+      function mockProps() {
+        var out = [], st = db.staleProps;
+        var push = function (k, v, stale) { out.push({ key: k, value: String(v), stale: !!stale }); };
+        if (st.indexOf('ADMIN_EMAILS') !== -1) push('ADMIN_EMAILS', ADMIN, true);
+        if (db.pageOpen) push('STUDENT_PAGE_OPEN', 'true'); else if (st.indexOf('STUDENT_PAGE_OPEN') !== -1) push('STUDENT_PAGE_OPEN', 'false', true);
+        if (db.deadline !== null) push('CHOICES_DEADLINE', msToLocal(db.deadline));
+        if (db.manualLock) push('CHOICES_LOCKED', 'true');
+        if (db.min !== 12) push('MIN_SEATS', db.min); else if (st.indexOf('MIN_SEATS') !== -1) push('MIN_SEATS', 12, true);
+        if (db.max !== 26) push('MAX_SEATS', db.max); else if (st.indexOf('MAX_SEATS') !== -1) push('MAX_SEATS', 26, true);
+        if (db.policy === 'MANUAL') push('UNDECIDED_POLICY', 'MANUAL'); else if (st.indexOf('UNDECIDED_POLICY') !== -1) push('UNDECIDED_POLICY', 'LAST', true);
+        if (db.announcement) push('ANNOUNCEMENT', JSON.stringify(db.announcement));
+        if (db.frozen.length) push('FROZEN_SHEETS', JSON.stringify(db.frozen.map(function (f) { return { sheet: f.sheet, at: f.at, by: f.by }; })).slice(0, 300));
+        if (db.published) push('PUBLISHED_SHEET', JSON.stringify(db.published));
+        return out;
+      }
       function journal(action, details, at) { db.journal.push({ at: iso(at || Date.now()), admin: ADMIN, action: action, details: details }); }
       journal('PAGE_ETUDIANTE', 'Page étudiante ouverte', t0 - 3 * DAY);
       journal('DATE_LIMITE', 'Date limite : ' + (db.deadline ? msToLocal(db.deadline) : '—') + ' (' + TZ + ')', t0 - 3 * DAY + 60000);
@@ -2701,7 +2769,8 @@
             locked: L.locked, manualLock: db.manualLock, deadlinePassed: L.passed, studentPageOpen: db.pageOpen, undecidedPolicy: db.policy,
             announcement: db.announcement,
             results: { frozen: db.frozen.map(function (f) { return { sheet: f.sheet, at: f.at, by: f.by, exists: f.exists }; }), published: db.published },
-            mail: { available: !mailReason, reason: mailReason, remainingQuota: db.quota }, studentUrl: URL_STUDENT
+            mail: { available: !mailReason, reason: mailReason, remainingQuota: db.quota }, studentUrl: URL_STUDENT,
+            properties: mockProps()
           },
           participation: {
             classSize: N, choicesSaved: saved.length, pending: N - saved.length,
@@ -2721,7 +2790,8 @@
             })
           },
           health: {
-            loaded: N, expected: 70, skipped: db.skipped, orphanPreferences: db.orphans, duplicatePreferences: db.dups, invalidPreferences: db.invalid,
+            loaded: N, expected: 70, publishedSheetMissing: false,
+            staleProperties: mockProps().filter(function (x) { return x.stale; }).map(function (x) { return x.key; }), skipped: db.skipped, orphanPreferences: db.orphans, duplicatePreferences: db.dups, invalidPreferences: db.invalid,
             ambiguousNames: db.ambiguous, emailColumn: { present: true, filled: filled }, badEmails: db.badEmails, staleOverrides: [], forcedOverflow: [], staleTieBreaks: []
           },
           roster: a.order.map(function (k) {
@@ -2912,12 +2982,12 @@
           return write('VERROU', b ? 'Verrou manuel activé' : 'Verrou manuel levé', b ? "Choix clos : plus aucun enregistrement étudiant n'est accepté." : (passed ? 'Verrou manuel levé, mais la date limite est dépassée : les choix restent clos. Repoussez la date limite pour les rouvrir.' : 'Choix rouverts : les étudiants peuvent de nouveau enregistrer.'));
         },
         adminSetStudentPageOpen: function (b) {
-          db.pageOpen = !!b;
+          db.pageOpen = !!b; unstale(['STUDENT_PAGE_OPEN']);
           return write('PAGE_ETUDIANTE', b ? 'Page étudiante ouverte' : 'Page étudiante fermée', b ? 'Page étudiante ouverte : les étudiants voient désormais le tableau de bord.' : "Page étudiante fermée : les étudiants voient la page d'attente.");
         },
         adminSetUndecidedPolicy: function (p) {
           if (p !== 'LAST' && p !== 'MANUAL') throw new Error('Politique inconnue : choisissez LAST ou MANUAL.');
-          db.policy = p;
+          db.policy = p; unstale(['UNDECIDED_POLICY']);
           return write('POLITIQUE_SANS_CHOIX', 'Politique sans choix : ' + p, p === 'LAST' ? 'Les étudiants sans choix seront placés en dernier, dans les filières qui en ont le plus besoin.' : "Les étudiants sans choix resteront non placés jusqu'à une décision manuelle.");
         },
         adminSetRules: function (o) {
@@ -2925,7 +2995,7 @@
           if (3 * max < N) throw new Error('Plafond insuffisant : 3 × ' + max + ' = ' + (3 * max) + ' places pour ' + N + ' étudiants.');
           if (3 * min > N) throw new Error('Minimum impossible : 3 × ' + min + ' = ' + (3 * min) + " dépasse l'effectif de " + N + '.');
           var before = db.min + ' / ' + db.max;
-          db.min = min; db.max = max;
+          db.min = min; db.max = max; unstale(['MIN_SEATS', 'MAX_SEATS']);
           return write('REGLES', 'Minimum et maximum : ' + before + ' → ' + min + ' / ' + max, 'Règles appliquées : au plus ' + max + ' et au moins ' + min + ' étudiants par filière. Les projections des étudiants changeront à leur prochaine actualisation.');
         },
         adminSetAnnouncement: function (o) {
@@ -2990,6 +3060,12 @@
           if (!db.published) throw new Error("Aucun résultat n'est publié.");
           var s = db.published.sheet; db.published = null;
           return write('DEPUBLIER', 'Feuille dépubliée : ' + s, 'Résultats dépubliés : les étudiants ne voient plus de résultat officiel.');
+        },
+        adminCleanSettings: function () {
+          var keys = db.staleProps.slice();
+          if (!keys.length) return write('REGLAGES_NETTOYES', null, 'Aucune propriété inutile : rien à retirer.');
+          db.staleProps = [];
+          return write('REGLAGES_NETTOYES', 'Propriétés retirées (valeur par défaut ou vide) : ' + keys.join(', '), keys.length + ' propriété(s) inutile(s) retirée(s) : ' + keys.join(', ') + '.');
         },
         adminSendReminders: function (o) {
           if (!o || o.confirm !== 'ENVOYER') throw new Error("Tapez ENVOYER pour confirmer l'envoi.");
