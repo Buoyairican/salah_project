@@ -490,10 +490,16 @@
     var mock = HAS_GAS ? null : createMock();
     var POLL_MS = (mock && mock.pollMs) || POLL_MS_DEFAULT;
 
-    function rpc(fn, args, onOk, onFail) {
+    // timeoutMs (facultatif) : passé ce délai sans réponse, l'appel est compté comme échoué
+    // et une réponse tardive est ignorée (sinon un appel perdu bloquerait toutes les actualisations)
+    function rpc(fn, args, onOk, onFail, timeoutMs) {
+      var done = false, timer = null;
+      var ok = function (res) { if (done) return; done = true; clearTimeout(timer); onOk(res); };
+      var fail = function (err) { if (done) return; done = true; clearTimeout(timer); onFail(err); };
+      if (timeoutMs) timer = setTimeout(function () { fail(new Error('Le serveur ne répond pas.')); }, timeoutMs);
       var runner = HAS_GAS
-        ? google.script.run.withSuccessHandler(onOk).withFailureHandler(onFail)
-        : mock.run(onOk, onFail);
+        ? google.script.run.withSuccessHandler(ok).withFailureHandler(fail)
+        : mock.run(ok, fail);
       runner[fn].apply(runner, args || []);
     }
 
@@ -550,7 +556,7 @@
       }, function (err) {
         bgInFlight = Math.max(0, bgInFlight - 1);
         onLoadError(err, kind);
-      });
+      }, 45000);
     }
 
     function onLoadError(err, kind) {
@@ -592,29 +598,35 @@
       busy = opts.label || 'Enregistrement…';
       var id = ++seq;
       syncChrome();
-      if (opts.ctrl) opts.ctrl.setBusy(true);
+      // Les boutons de la vue sont redessinés désactivés tant que l'écriture est en cours
+      if (opts.ctrl) opts.ctrl.setBusy(true); else safeRenderTab();
       rpc(fn, args, function (res) {
         busy = null;
         if (opts.ctrl) opts.ctrl.setBusy(false);
-        if (res && res.overview && res.overview.access === 'ADMIN') {
+        var fresh = res && res.overview && res.overview.access === 'ADMIN';
+        if (fresh) {
           appliedSeq = id;
           ov = res.overview;
           lastUpdateAt = Date.now();
         }
         tally = null;
+        // Une case « lever aussi le verrou » cochée puis oubliée ne doit pas rouvrir les choix plus tard
+        if (fn !== 'adminSetDeadline' && ui.deadline) ui.deadline.unlock = false;
         if (opts.onOk) opts.onOk(res);
         render();
         if (res && res.notice) toast(res.notice, 'success');
+        if (!fresh) setTimeout(function () { load('manual'); }, 0); // enregistré, mais vue non renvoyée
         refreshTally(true);
         if (drawer && drawer.name) loadDrawer(drawer.name, true);
       }, function (err) {
         busy = null;
-        if (opts.ctrl) opts.ctrl.setBusy(false);
+        if (opts.ctrl) opts.ctrl.setBusy(false); else safeRenderTab();
         syncChrome();
         var msg = errMsg(err);
+        if (/ne répond pas/.test(msg)) msg += ' La modification a peut-être été enregistrée : actualisez pour vérifier.';
         if (opts.ctrl) opts.ctrl.setError(msg); else toast(msg, 'error');
         if (opts.onFail) opts.onFail(msg);
-      });
+      }, fn === 'adminSendReminders' ? 360000 : 120000);
     }
 
     function schedulePoll() {
@@ -638,9 +650,15 @@
       var a = document.activeElement;
       return !!a && (/^(INPUT|TEXTAREA|SELECT)$/).test(a.tagName) && ($('view').contains(a) || $('dialogRoot').contains(a));
     }
-    $('view').addEventListener('focusout', function () {
-      setTimeout(function () { if (deferredRender && !isEditing()) { deferredRender = false; render(); } }, 0);
-    });
+    var pointerDown = false;
+    function flushDeferred() {
+      if (deferredRender && !pointerDown && !isEditing()) { deferredRender = false; render(); }
+    }
+    document.addEventListener('pointerdown', function () { pointerDown = true; }, true);
+    document.addEventListener('pointerup', function () { setTimeout(function () { pointerDown = false; flushDeferred(); }, 0); }, true);
+    document.addEventListener('pointercancel', function () { pointerDown = false; }, true);
+    document.addEventListener('click', function () { setTimeout(flushDeferred, 0); }, true);
+    $('view').addEventListener('focusout', function () { setTimeout(flushDeferred, 0); });
 
     // =====================================================================
     // Habillage : en-tête, étapes, navigation
@@ -737,7 +755,8 @@
         h('div', { class: 'text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2', text: 'Raccourcis' }),
         ov.config.spreadsheetUrl ? h('div', { class: 'py-1' }, link('Ouvrir le classeur', ov.config.spreadsheetUrl)) : null,
         ov.config.studentUrl ? h('div', { class: 'py-1' }, link('Lien de la page étudiante', ov.config.studentUrl)) : null,
-        h('p', { class: 'mt-3 text-xs text-slate-500 leading-relaxed', text: 'Toute action est inscrite au journal avec votre adresse.' })
+        h('p', { class: 'mt-3 text-xs text-slate-500 leading-relaxed', text: 'Toute action est inscrite au journal avec votre adresse.' }),
+        ov.config.version ? h('p', { class: 'mt-2 text-[11px] text-slate-400', text: 'Version du code : ' + ov.config.version }) : null
       ]);
       syncChrome();
     }
@@ -926,6 +945,10 @@
     }
     function attentionItems() {
       var c = ov.config, items = [];
+      var dep = c.deployment || {};
+      if (dep.isDev) items.push({ kind: 'warning', title: 'Interface ouverte par le lien de test (/dev)', text: 'Ce lien exécute le code enregistré, pas la version déployée que voient les étudiants. Utilisez le lien /exec.', tab: 'settings' });
+      if (dep.publicUrlIsDev || dep.publicUrlOtherDeployment) items.push({ kind: 'warning', title: 'Lien des rappels douteux (PUBLIC_URL)', text: dep.publicUrlIsDev ? 'Il pointe vers un lien de test (/dev) que les étudiants ne peuvent pas ouvrir.' : 'Il pointe vers un autre déploiement que celui-ci : les étudiants risquent d’y trouver une ancienne version.', tab: 'health' });
+      if (c.results.published && !c.studentPageOpen) items.push({ kind: 'warning', title: 'Résultats publiés, page étudiante fermée', text: 'Les étudiants ne voient que le message d’attente : ouvrez la page pour qu’ils voient leur filière.', tab: 'settings' });
       if (ov.health.publishedSheetMissing) items.push({ kind: 'danger', title: 'Feuille publiée supprimée', text: 'Les étudiants ne voient plus de résultat et les choix restent clos : dépubliez, puis publiez une autre affectation figée.', tab: 'results' });
       if ((ov.health.staleProperties || []).length) items.push({ kind: 'warning', title: plural(ov.health.staleProperties.length, 'réglage figé inutilement', 'réglages figés inutilement'), text: 'Propriétés du script restées à leur valeur par défaut : retirez-les en un clic.', tab: 'health' });
       if (c.deadlineInvalid) items.push({ kind: 'danger', title: 'Date limite illisible', text: 'La propriété CHOICES_DEADLINE est invalide : les choix sont verrouillés. Redéfinissez la date limite.', tab: 'settings' });
@@ -1845,6 +1868,7 @@
             });
           }, !!busy)
         ]),
+        ov.config.deployment && ov.config.deployment.isDev ? h('div', { class: 'mt-4' }, callout('warning', 'Vous utilisez le lien de test (/dev) : il exécute le code enregistré, que les étudiants ne voient pas. Ouvrez l’interface par le lien /exec de la version déployée.')) : null,
         ov.config.studentUrl ? h('div', { class: 'mt-4 flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs' }, [
           h('span', { class: 'text-slate-500', text: 'Lien à diffuser :' }),
           h('code', { class: 'flex-1 min-w-0 truncate text-slate-700', text: ov.config.studentUrl }),
@@ -1855,13 +1879,18 @@
 
     function deadlineCard() {
       var c = ov.config;
+      var hasDeadline = !!(c.deadline || c.deadlineInvalid);
+      // Valeur en vigueur sur laquelle repose le brouillon (pour détecter un changement fait ailleurs)
+      var dlBase = c.deadlineInvalid ? 'invalide:' + (c.deadlineRaw || '') : (c.deadlineLocal || '');
       // Brouillon : resynchronisé avec le serveur tant que vous ne l'avez pas modifié
       if (!ui.deadline || !ui.deadline.dirty) {
         ui.deadline = c.deadlineLocal
-          ? { date: c.deadlineLocal.slice(0, 10), time: c.deadlineLocal.slice(11, 16), unlock: false }
-          : { date: '', time: '18:00', unlock: false };
+          ? { date: c.deadlineLocal.slice(0, 10), time: c.deadlineLocal.slice(11, 16), unlock: false, base: dlBase }
+          : { date: '', time: '18:00', unlock: false, base: dlBase };
       }
       var d = ui.deadline;
+      if (!c.manualLock) d.unlock = false; // case masquée : elle ne doit pas rester armée
+      var dlConflict = d.dirty && d.base !== dlBase;
       var dateIn = h('input', { type: 'date', value: d.date, class: inputCls('tabular'), id: 'dlDate' });
       var timeIn = h('input', { type: 'time', value: d.time, class: inputCls('tabular'), id: 'dlTime' });
       dateIn.addEventListener('input', function () { d.date = dateIn.value; d.dirty = true; });
@@ -1874,14 +1903,23 @@
           d.date = sp.date; d.time = '18:00'; d.dirty = true; renderTab();
         } });
       });
-      var current = c.deadline
+      var current = c.deadlineInvalid
+        ? h('div', null, [
+          h('div', { class: 'font-medium text-red-800' }, ['Date limite illisible : « ', h('code', { class: 'text-sm', text: c.deadlineRaw || '' }), ' »']),
+          h('div', { class: 'text-sm text-red-700', text: 'Les choix sont verrouillés tant qu’elle n’est pas remplacée ou supprimée.' })
+        ])
+        : c.deadline
         ? h('div', null, [
           h('div', { class: 'font-medium text-slate-900', text: fmtLong(c.deadline) }),
           h('div', { class: 'text-sm ' + (c.deadlinePassed ? 'text-red-700' : 'text-slate-500'), text: c.deadlinePassed ? 'Date dépassée : les enregistrements sont fermés.' : 'Dans ' + fmtCountdown(parseIso(c.deadline) - serverNow()) })
         ])
         : h('div', { class: 'font-medium text-slate-900', text: 'Aucune date limite' });
       return card('Date limite', 'Saisie en ' + (tzLabel() || "heure de l'établissement") + '. Les étudiants voient un compte à rebours.', [
-        h('div', { class: 'rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 mb-4' }, current),
+        h('div', { class: 'rounded-lg border px-4 py-3 mb-4 ' + (c.deadlineInvalid ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200') }, current),
+        dlConflict ? h('div', { class: 'mb-4' }, callout('warning', h('div', null, [
+          h('p', { text: 'La date limite a changé depuis que vous avez commencé à la modifier (ailleurs, ou par un autre administrateur). Enregistrer remplacera la valeur en vigueur.' }),
+          h('button', { type: 'button', class: 'mt-1 text-xs font-semibold text-amber-900 underline', text: 'Abandonner ma saisie et reprendre la valeur en vigueur', onclick: function () { ui.deadline = null; renderTab(); } })
+        ]))) : null,
         h('div', { class: 'grid grid-cols-1 sm:grid-cols-2 gap-3' }, [field('Date', dateIn, null, 'dlDate'), field('Heure', timeIn, null, 'dlTime')]),
         h('div', { class: 'mt-3 flex flex-wrap gap-2' }, presets),
         c.manualLock ? h('label', { class: 'mt-4 flex items-start gap-2 text-sm text-slate-700' }, [unlockBox, h('span', { text: 'Lever aussi le verrou manuel (rouvre les choix si la date est future)' })]) : null,
@@ -1889,7 +1927,7 @@
           btn('Enregistrer la date limite', { variant: 'primary', icon: 'check', disabled: !!busy, onClick: function () {
             // Date et heure vidées : c'est une suppression de la date limite (sinon l'ancienne resterait)
             if (!d.date && !d.time) {
-              if (!c.deadline) { toast('Aucune date limite à enregistrer.', 'info'); return; }
+              if (!hasDeadline) { toast('Aucune date limite à enregistrer.', 'info'); return; }
               confirmAction({ title: 'Supprimer la date limite ?', intro: 'Les champs sont vides : la date limite actuelle sera supprimée. Sans date limite, les choix restent modifiables jusqu’à une clôture manuelle.', confirmLabel: 'Supprimer', tone: 'danger', fn: 'adminSetDeadline', args: [null, false], onOk: function () { ui.deadline = null; } });
               return;
             }
@@ -1897,7 +1935,7 @@
             var unlock = !!(c.manualLock && d.unlock);
             mutate('adminSetDeadline', [d.date + ' ' + d.time, unlock], { label: 'Enregistrement de la date limite…', onOk: function () { ui.deadline = null; } });
           } }),
-          c.deadline ? btn('Supprimer la date limite', { variant: 'subtle', disabled: !!busy, onClick: function () {
+          hasDeadline ? btn('Supprimer la date limite', { variant: 'subtle', disabled: !!busy, onClick: function () {
             confirmAction({ title: 'Supprimer la date limite ?', intro: 'Sans date limite, les choix restent modifiables jusqu’à une clôture manuelle.', confirmLabel: 'Supprimer', tone: 'danger', fn: 'adminSetDeadline', args: [null, false], onOk: function () { ui.deadline = null; } });
           } }) : null
         ])
@@ -1947,9 +1985,12 @@
 
     function announcementCard() {
       var cur = ov.config.announcement;
+      // Version en ligne sur laquelle repose le brouillon (pour détecter un changement fait ailleurs)
+      var annBase = cur ? JSON.stringify([cur.text, cur.level, cur.updatedAt]) : '';
       // Brouillon : resynchronisé avec le serveur tant que vous ne l'avez pas modifié
-      if (!ui.announcement || !ui.announcement.dirty) ui.announcement = { text: cur ? cur.text : '', level: cur ? cur.level : 'info', dirty: false };
+      if (!ui.announcement || !ui.announcement.dirty) ui.announcement = { text: cur ? cur.text : '', level: cur ? cur.level : 'info', dirty: false, base: annBase };
       var a = ui.announcement;
+      var annConflict = a.dirty && a.base !== annBase;
       var ta = h('textarea', { rows: '4', maxlength: '400', class: inputCls('resize-y'), placeholder: 'Ex. : Réunion d’information jeudi à 10 h, amphi B.', value: a.text, id: 'annText' });
       var counter = h('span', { class: 'tabular' });
       var preview = h('div');
@@ -1972,6 +2013,10 @@
       draw();
       return card('Annonce aux étudiants', cur ? 'En ligne depuis le ' + fmtDateTime(cur.updatedAt) + '.' : 'Aucune annonce en ligne.', [
         h('div', { class: 'space-y-3' }, [
+          annConflict ? callout('warning', h('div', null, [
+            h('p', { text: cur ? 'L’annonce en ligne a été modifiée ailleurs depuis que vous avez commencé à l’éditer. Publier remplacera la version en ligne.' : 'L’annonce a été retirée ailleurs depuis que vous avez commencé à l’éditer. Publier la remettrait en ligne.' }),
+            h('button', { type: 'button', class: 'mt-1 text-xs font-semibold text-amber-900 underline', text: 'Abandonner mon brouillon', onclick: function () { ui.announcement = null; renderTab(); } })
+          ])) : null,
           field('Message (400 caractères au plus)', ta, null, 'annText'),
           h('div', { class: 'flex items-center justify-between gap-3 text-xs' }, [levels, counter]),
           h('div', null, [h('div', { class: 'text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2', text: 'Aperçu côté étudiant' }), preview]),
@@ -2770,7 +2815,8 @@
             announcement: db.announcement,
             results: { frozen: db.frozen.map(function (f) { return { sheet: f.sheet, at: f.at, by: f.by, exists: f.exists }; }), published: db.published },
             mail: { available: !mailReason, reason: mailReason, remainingQuota: db.quota }, studentUrl: URL_STUDENT,
-            properties: mockProps()
+            properties: mockProps(), version: 'démo', deadlineRaw: null,
+            deployment: { url: URL_STUDENT, isDev: false, publicUrlIsDev: false, publicUrlOtherDeployment: false }
           },
           participation: {
             classSize: N, choicesSaved: saved.length, pending: N - saved.length,

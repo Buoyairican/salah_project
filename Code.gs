@@ -76,6 +76,7 @@ const UNDECIDED_POLICIES = ['LAST', 'MANUAL'];
 const SOURCES = ['ALGO', 'TIEBREAK', 'MANUAL', 'AUTO'];
 const MAIL_SENDER_NAME = 'Coordination CI2 RST';
 
+const APP_VERSION = 'V2.3 (2026-10-16)'; // [V2] affichée dans l'interface : vérifie que /exec sert la bonne version
 const PAGE_TITLE = 'Affectation de Spécialité - RST';
 const ADMIN_PAGE_TITLE = 'Gestion des affectations - RST';
 const WAITING_TEXT = 'Vous pourrez bientôt choisir vos options de spécialité sur cette page.';
@@ -197,10 +198,10 @@ function resolveStudent_(email, rows) {
   };
 }
 
-function currentUserName_(snap) {
+function currentUserName_(snap, props) {
   const email = activeEmail_();
   // [V2] L'adresse de l'administrateur ne correspond à aucune ligne : contrôle AVANT l'appariement
-  if (isAdmin_(email)) throw new Error(ADMIN_NOT_STUDENT_MESSAGE);
+  if (isAdmin_(email, props)) throw new Error(ADMIN_NOT_STUDENT_MESSAGE);
   if (!email.endsWith('@' + DOMAIN)) {
     throw new Error('Connectez-vous avec votre compte institutionnel @' + DOMAIN + '.');
   }
@@ -496,6 +497,17 @@ function assertNotPublished_(props) {
 
 function webAppUrl_() {
   try { return String(ScriptApp.getService().getUrl() || ''); } catch (e) { return ''; }
+}
+
+// [V2] Lien de test d'un projet Apps Script (exécute le code enregistré, réservé aux éditeurs)
+function isDevUrl_(url) {
+  return /\/dev(\?|$)/.test(String(url || ''));
+}
+
+// [V2] Identifiant de déploiement dans une URL /macros/s/<id>/exec
+function deploymentId_(url) {
+  const m = /\/macros\/(?:[^/]+\/)?s\/([^/]+)\//.exec(String(url || ''));
+  return m ? m[1] : null;
 }
 
 function publicUrl_(props) {
@@ -900,42 +912,45 @@ function writeChoices_(ss, officialName, choices, now, source, author, logHistor
 
 function getDashboardState(choices) {
   // [V2] Contrôle administrateur AVANT tout appariement par nom
-  if (isAdmin_(activeEmail_())) return { access: 'ADMIN', adminUrl: webAppUrl_() };
+  const email = activeEmail_();
+  const props = scriptProps_(); // [V2] lues une seule fois pour toute la requête
+  if (isAdmin_(email, props)) return { access: 'ADMIN', adminUrl: webAppUrl_() };
   // [V2] Page fermée : un état dédié (et non une erreur), pour qu'un onglet déjà ouvert bascule
   // sur la page d'attente et cesse d'afficher d'anciennes données ou une annonce retirée.
-  const props = scriptProps_();
   if (!studentPageOpen_(props)) return closedState_(props);
   const snap = loadSnapshot_();
-  const name = currentUserName_(snap);
-  return buildState_(snap, name, normalizeChoices_(choices));
+  const name = currentUserName_(snap, props);
+  return buildState_(snap, name, normalizeChoices_(choices), props);
 }
 
 function previewOdds(userChoices) {
   // [V2] Contrôle administrateur AVANT tout appariement par nom
-  if (isAdmin_(activeEmail_())) throw new Error(ADMIN_NOT_STUDENT_MESSAGE);
+  const props = scriptProps_(); // [V2] lues une seule fois
+  if (isAdmin_(activeEmail_(), props)) throw new Error(ADMIN_NOT_STUDENT_MESSAGE);
   const choices = normalizeChoices_(userChoices);
   if (!choices) throw new Error(INVALID_CHOICES_MESSAGE);
-  assertStudentPageOpen_();
+  assertStudentPageOpen_(props);
   const snap = loadSnapshot_();
-  const name = currentUserName_(snap);
-  return buildState_(snap, name, choices);
+  const name = currentUserName_(snap, props);
+  return buildState_(snap, name, choices, props);
 }
 
 function saveChoices(userChoices) {
   // [V2] Contrôle administrateur AVANT tout appariement par nom
   const email = activeEmail_();
-  if (isAdmin_(email)) throw new Error(ADMIN_NOT_STUDENT_MESSAGE);
+  const props = scriptProps_(); // [V2] lues une seule fois (relues sous verrou avant d'écrire)
+  if (isAdmin_(email, props)) throw new Error(ADMIN_NOT_STUDENT_MESSAGE);
   const choices = normalizeChoices_(userChoices);
   if (!choices) throw new Error(INVALID_CHOICES_MESSAGE);
-  assertStudentPageOpen_();
+  assertStudentPageOpen_(props);
   // [V2] choicesLock_ inclut la publication des résultats (aucun enregistrement après publication)
-  if (choicesLock_().locked) throw new Error(LOCKED_MESSAGE);
+  if (choicesLock_(props).locked) throw new Error(LOCKED_MESSAGE);
 
   const cached = loadSnapshot_();
-  const name = currentUserName_(cached);
+  const name = currentUserName_(cached, props);
   const known = indexOfStudent_(cached, name);
   if (known !== -1 && sameChoices_(cached.rows[known].c, choices)) {
-    return buildState_(cached, name, choices);
+    return buildState_(cached, name, choices, props);
   }
 
   const cache = CacheService.getScriptCache();
@@ -945,10 +960,13 @@ function saveChoices(userChoices) {
   }
 
   return withScriptLock_(function() {
-    if (choicesLock_().locked) throw new Error(LOCKED_MESSAGE);
+    // [V2] Relecture fraîche sous verrou : page fermée ou choix clos entre-temps
+    const fresh = scriptProps_();
+    assertStudentPageOpen_(fresh);
+    if (choicesLock_(fresh).locked) throw new Error(LOCKED_MESSAGE);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const snap = readSnapshot_(ss);
-    const officialName = currentUserName_(snap);
+    const officialName = currentUserName_(snap, fresh);
     const u = indexOfStudent_(snap, officialName);
     if (u === -1) throw new Error(NO_GRADE_MESSAGE);
 
@@ -956,13 +974,14 @@ function saveChoices(userChoices) {
     // [V2] Écriture commune : Preferences comme avant, + une ligne Historique si les choix changent
     writeChoices_(ss, officialName, choices, now, 'ETUDIANT', email, !sameChoices_(snap.rows[u].c, choices));
     SpreadsheetApp.flush();
+    invalidateTally_(); // [V2] statuts de l'administration recalculés
 
     snap.rows[u].c = choices;
     snap.rows[u].t = now.getTime();
     snap.builtAt = Date.now();
     putSnapshot_(snap);
     try { cache.put(cooldownKey, '1', SAVE_COOLDOWN_SECONDS); } catch (e) { Logger.log('Cooldown put failed: ' + e); }
-    return buildState_(snap, officialName, choices);
+    return buildState_(snap, officialName, choices, fresh);
   });
 }
 
@@ -977,13 +996,13 @@ function closedState_(props) {
   };
 }
 
-function buildState_(snap, officialName, requested) {
+function buildState_(snap, officialName, requested, props) {
   const u = indexOfStudent_(snap, officialName);
   if (u === -1) throw new Error(NO_GRADE_MESSAGE);
 
   const me = snap.rows[u];
-  // [V2] Propriétés lues une seule fois ; règles en vigueur au lieu des constantes
-  const props = scriptProps_();
+  // [V2] Propriétés lues une seule fois (transmises par l'appelant) ; règles en vigueur au lieu des constantes
+  props = props || scriptProps_();
   const rules = rules_(props);
   const lockInfo = choicesLock_(props);
   const coverage = coverage_(snap, u);
@@ -1679,6 +1698,7 @@ function buildOverview_(ctx) {
       deadline: lock.deadline,
       deadlineLocal: dl !== null ? Utilities.formatDate(new Date(dl), tz, 'yyyy-MM-dd HH:mm') : null,
       deadlineInvalid: lock.deadlineInvalid,
+      deadlineRaw: lock.deadlineInvalid ? String(ctx.props[DEADLINE_PROPERTY] || '').trim().slice(0, 100) : null, // [V2]
       locked: lock.locked,
       manualLock: lock.manualLock,
       deadlinePassed: lock.deadlinePassed,
@@ -1688,7 +1708,9 @@ function buildOverview_(ctx) {
       results: { frozen: frozen, published: publishedSheet_(ctx.props) },
       mail: mailInfo_(ctx.snap),
       studentUrl: publicUrl_(ctx.props),
-      properties: settingsReport_(ctx.props) // [V2]
+      properties: settingsReport_(ctx.props), // [V2]
+      version: APP_VERSION,
+      deployment: deploymentInfo_(ctx.props)
     },
     participation: participation_(rows, keys, histByKey, tz),
     demand: demand_(rows),
@@ -1696,6 +1718,19 @@ function buildOverview_(ctx) {
     attention: { pending: pending, bubble: bubble_(rows, alloc), ties: ties },
     health: health_(ctx, alloc),
     roster: roster
+  };
+}
+
+// [V2] Lien utilisé par l'interface et par les rappels : lien de test, ou autre déploiement que celui-ci ?
+function deploymentInfo_(props) {
+  const url = webAppUrl_();
+  const custom = String(props[PUBLIC_URL_PROPERTY] || '').trim();
+  const a = deploymentId_(url), b = deploymentId_(custom);
+  return {
+    url: url,
+    isDev: isDevUrl_(url),
+    publicUrlIsDev: !!custom && isDevUrl_(custom),
+    publicUrlOtherDeployment: !!(a && b && a !== b)
   };
 }
 
@@ -1848,7 +1883,12 @@ function adminGetStatusTally() {
   const cache = CacheService.getScriptCache();
   try {
     const hit = cache.get(TALLY_CACHE_KEY);
-    if (hit) return JSON.parse(hit);
+    // [V2] ignoré si les règles ont changé depuis (ex. propriété modifiée hors de l'interface)
+    if (hit) {
+      const parsed = JSON.parse(hit);
+      const now = rules_();
+      if (parsed.rules && parsed.rules.min === now.min && parsed.rules.max === now.max) return parsed;
+    }
   } catch (e) { Logger.log('Tally cache read failed: ' + e); }
   const snap = loadSnapshot_();
   const rules = rules_();
@@ -1860,7 +1900,7 @@ function adminGetStatusTally() {
     counts[status] = (counts[status] || 0) + 1;
     byStudent[r.h] = status;
   });
-  const out = { computedAt: new Date().toISOString(), counts: counts, byStudent: byStudent };
+  const out = { computedAt: new Date().toISOString(), counts: counts, byStudent: byStudent, rules: { min: rules.min, max: rules.max } };
   try { cache.put(TALLY_CACHE_KEY, JSON.stringify(out), TALLY_CACHE_SECONDS); } catch (e) { Logger.log('Tally cache put failed: ' + e); }
   return out;
 }
@@ -2118,17 +2158,38 @@ function adminPreviewReminders() {
 
 function adminWrite_(admin, action, fn) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let overview = null;
   const out = withScriptLock_(function() {
     const res = fn(ss, scriptProps_(), admin) || {};
     if (res.details !== undefined && res.details !== null) appendJournal_(ss, admin, action, res.details);
     invalidateSnapshot_();
     invalidateTally_();
     if (res.official) invalidateOfficial_();
+    // [V2] Vue d'ensemble construite sous ce même verrou (pas de second verrou à attendre).
+    // La modification est déjà enregistrée : une erreur ici ne doit pas la faire passer pour échouée.
+    overview = overviewAfterWrite_(ss);
     return res;
   });
-  const result = { ok: true, notice: out.notice || 'Modification enregistrée.', overview: adminOverview_(ss) };
+  const result = {
+    ok: true,
+    notice: (out.notice || 'Modification enregistrée.') + (overview ? '' : ' (Affichage non actualisé : rechargez la page.)'),
+    overview: overview
+  };
   if (out.extra) Object.keys(out.extra).forEach(function(k) { result[k] = out.extra[k]; });
   return result;
+}
+
+// [V2] Lecture fraîche + vue d'ensemble, à appeler sous verrou ; null en cas d'erreur
+function overviewAfterWrite_(ss) {
+  try {
+    const diag = {};
+    const snap = readSnapshot_(ss, diag);
+    putSnapshot_(snap);
+    return buildOverview_(contextFrom_(ss, scriptProps_(), snap, diag));
+  } catch (e) {
+    Logger.log("Vue d'ensemble non construite après écriture : " + e);
+    return null;
+  }
 }
 
 function adminSetDeadline(local, unlock) {
@@ -2380,9 +2441,13 @@ function adminFreezeAllocation(req) {
     try { sh.protect().setDescription('Affectation figée le ' + now.toISOString()).setWarningOnly(true); } catch (e) { Logger.log('Protection impossible : ' + e); }
     // [V2] Les feuilles figées supprimées à la main disparaissent de la liste
     const existing = ss.getSheets().map(function(x) { return x.getName(); });
-    const list = [{ sheet: name, at: now.toISOString(), by: admin }]
-      .concat(frozenSheets_(props).filter(function(f) { return existing.indexOf(f.sheet) !== -1; }))
-      .slice(0, FROZEN_SHEETS_MAX);
+    let list = [{ sheet: name, at: now.toISOString(), by: admin }]
+      .concat(frozenSheets_(props).filter(function(f) { return existing.indexOf(f.sheet) !== -1; }));
+    // La feuille publiée ne sort jamais de la liste (sinon elle ne pourrait plus être republiée)
+    const pubNow = publishedSheet_(props);
+    const pubIdx = pubNow ? list.map(function(f) { return f.sheet; }).indexOf(pubNow.sheet) : -1;
+    if (pubIdx >= FROZEN_SHEETS_MAX) list = list.slice(0, FROZEN_SHEETS_MAX - 1).concat([list[pubIdx]]);
+    list = list.slice(0, FROZEN_SHEETS_MAX);
     PropertiesService.getScriptProperties().setProperty(FROZEN_SHEETS_PROPERTY, JSON.stringify(list));
     const counts = BRANCHES.map(function(b) { return b + ' ' + alloc.counts[b]; }).join(', ');
     return {
@@ -2407,7 +2472,10 @@ function adminPublishResults(req) {
     PropertiesService.getScriptProperties().setProperty(PUBLISHED_SHEET_PROPERTY,
       JSON.stringify({ sheet: sheet, at: new Date().toISOString(), by: admin }));
     return {
-      notice: 'Résultats publiés : chaque étudiant voit désormais sa filière officielle.',
+      // [V2] Page fermée : les étudiants ne voient que le message d'attente tant qu'elle n'est pas ouverte
+      notice: studentPageOpen_(props)
+        ? 'Résultats publiés : chaque étudiant voit désormais sa filière officielle.'
+        : "Résultats publiés, mais la page étudiante est fermée : les étudiants ne voient que le message d'attente tant que vous ne l'ouvrez pas (Calendrier & accès).",
       details: 'Feuille publiée : ' + sheet,
       official: true
     };
@@ -2458,13 +2526,15 @@ function adminSendReminders(req) {
   const props = scriptProps_();
   const lock = choicesLock_(props);
   if (lock.locked) throw new Error('Les choix sont clos : un rappel inviterait les étudiants à une action impossible.');
+  // [V2] Jamais de lien de test (/dev) dans un rappel : les étudiants ne peuvent pas l'ouvrir
+  const link = publicUrl_(props);
+  if (isDevUrl_(link)) throw new Error("Le lien des rappels est le lien de test (/dev), que les étudiants ne peuvent pas ouvrir : ouvrez l'interface par le lien /exec, ou définissez PUBLIC_URL.");
   const snap = withScriptLock_(function() { const s = readSnapshot_(ss); putSnapshot_(s); return s; });
   const info = mailInfo_(snap);
   if (!info.available) throw new Error(info.reason || "Envoi d'e-mails indisponible.");
 
   const tz = Session.getScriptTimeZone();
   const deadlineText = lock.deadline ? fmtLocalFr_(Date.parse(lock.deadline), tz) : 'non fixée';
-  const link = publicUrl_(props);
   const fill = function(text, name) {
     return text.split('{nom}').join(name).split('{date_limite}').join(deadlineText).split('{lien}').join(link);
   };
@@ -2482,14 +2552,17 @@ function adminSendReminders(req) {
   });
   const count = function(s) { return results.filter(function(r) { return r.status === s; }).length; };
   const sent = count('SENT'), failed = count('FAILED'), skipped = count('SKIPPED');
+  let overview = null;
   withScriptLock_(function() {
     appendJournal_(ss, admin, 'RAPPELS', sent + ' envoyé(s), ' + failed + ' échec(s), ' + skipped + ' non envoyé(s) (quota) — objet : ' + subject);
     invalidateSnapshot_();
+    overview = overviewAfterWrite_(ss); // [V2] même verrou ; les e-mails sont partis quoi qu'il arrive
   });
   return {
     ok: true,
-    notice: sent + ' rappel(s) envoyé(s)' + (failed ? ', ' + failed + ' échec(s)' : '') + (skipped ? ', ' + skipped + ' non envoyé(s) faute de quota' : '') + '.',
-    overview: adminOverview_(ss),
+    notice: sent + ' rappel(s) envoyé(s)' + (failed ? ', ' + failed + ' échec(s)' : '') + (skipped ? ', ' + skipped + ' non envoyé(s) faute de quota' : '') + '.' +
+      (overview ? '' : ' (Affichage non actualisé : rechargez la page.)'),
+    overview: overview,
     results: results,
     sent: sent, failed: failed, skipped: skipped
   };

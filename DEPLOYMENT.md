@@ -65,6 +65,13 @@ If any line says `FAIL`, stop here and roll back (§9).
 
 > Do **not** create a *new* deployment: that would produce a different URL.
 
+**Saving the code is not enough.** The `/exec` link runs the *version* it was deployed with; script properties, on the other hand, are shared by every version. If you paste new code and run `setupSheets` but forget *New version*, students and the `/exec` interface keep running the old code, which writes the old values back. So, every time you update the code:
+1. Deploy a new version as above, then check that *Manage deployments* shows the new version number and today's date.
+2. Archive any other web-app deployment, so no old link keeps running old code.
+3. Always open the interface through the **`/exec`** link. The `/dev` link (*Test deployments*) runs the saved code, which students don't see; the interface warns you if you use it.
+4. The interface's sidebar shows *Version du code* (`APP_VERSION` in `Code.gs`): check it matches the version you just pasted.
+5. Students who had the page open before the update must reload it once.
+
 **Nothing changes for students at this point:** `STUDENT_PAGE_OPEN` is absent (page closed), so they see the same waiting message.
 
 ## 6. Check that it works
@@ -79,6 +86,8 @@ Then, in the management interface:
 1. **Qualité des données** → check *Étudiants chargés = 70 / 70* and that no line is listed under *Lignes écartées*.
 2. Same page → **Tester une adresse de connexion** with two or three real student addresses. Each must say *« Connexion acceptée : NOM Prénom »*. If one says *ambiguë* or *aucune correspondance*, fill that student's address in **column C (`Email`) of `Responses`** — an exact e-mail match always wins.
 3. **Journal des actions** is empty — every change you make from now on is recorded there with your address.
+4. **Live updates:** with a student account in a private window, open the link. Switch the student page on and off and add then remove an announcement: within a minute (or on *Actualiser*), the student's tab must follow each change without being reloaded.
+5. **Qualité des données → Réglages enregistrés:** after re-running `setupSheets`, nothing should be marked *Inutile*.
 
 ## 7. Running the campaign (coordinator's checklist)
 
