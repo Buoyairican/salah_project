@@ -36,7 +36,7 @@ In the editor toolbar, choose the function **`setupSheets`** and click **Run**.
 
 - Google asks for authorization the first time. Accept. The script needs: the spreadsheet (read/write), your e-mail address (to recognise users), and **sending e-mail as you** (only used by the optional reminders).
 - It creates, if missing: `Historique`, `Journal`, `Departage`, `Surcharges` (with headers) and writes **`Email`** in `Responses!C1` if that cell is empty.
-- It sets missing script properties to their defaults: `ADMIN_EMAILS`, `STUDENT_PAGE_OPEN=false`, `MIN_SEATS=12`, `MAX_SEATS=26`, `UNDECIDED_POLICY=LAST`.
+- It does **not** write any setting: an absent script property means its default (page closed, no deadline, no lock, 12 / 26, students without choices placed last, the administrator listed in the code). It **removes** properties left at their default value by an earlier version (for example `STUDENT_PAGE_OPEN=false`, `MIN_SEATS=12`), so no old value can stay fixed. Run it again after updating the code.
 - It never overwrites an existing sheet, header or property. Running it again logs *« Rien à faire : tout est déjà en place. »*
 
 ## 4. Run `selfTest`
@@ -65,20 +65,29 @@ If any line says `FAIL`, stop here and roll back (§9).
 
 > Do **not** create a *new* deployment: that would produce a different URL.
 
-**Nothing changes for students at this point:** `STUDENT_PAGE_OPEN` is `false`, so they still see the same waiting page.
+**Saving the code is not enough.** The `/exec` link runs the *version* it was deployed with; script properties, on the other hand, are shared by every version. If you paste new code and run `setupSheets` but forget *New version*, students and the `/exec` interface keep running the old code, which writes the old values back. So, every time you update the code:
+1. Deploy a new version as above, then check that *Manage deployments* shows the new version number and today's date.
+2. Archive any other web-app deployment, so no old link keeps running old code.
+3. Always open the interface through the **`/exec`** link. The `/dev` link (*Test deployments*) runs the saved code, which students don't see; the interface warns you if you use it.
+4. The interface's sidebar shows *Version du code* (`APP_VERSION` in `Code.gs`): check it matches the version you just pasted.
+5. Students who had the page open before the update must reload it once.
+
+**Nothing changes for students at this point:** `STUDENT_PAGE_OPEN` is absent (page closed), so they see the same waiting message.
 
 ## 6. Check that it works
 
 | Who | Open the web-app link | Expected |
 |---|---|---|
 | Coordinator (tomader.mazri@uit.ac.ma) | | **Management interface** (“Espace coordination”) |
-| A student account | | Waiting page: *« Vous pourrez bientôt choisir vos options de spécialité sur cette page. »* |
+| A student account | | Waiting message: *« Vous pourrez bientôt choisir vos options de spécialité sur cette page. »* (it turns into the dashboard by itself, within a minute, once you open the page) |
 | A non-uit.ac.ma Google account | | *« Connexion requise »* page |
 
 Then, in the management interface:
 1. **Qualité des données** → check *Étudiants chargés = 70 / 70* and that no line is listed under *Lignes écartées*.
 2. Same page → **Tester une adresse de connexion** with two or three real student addresses. Each must say *« Connexion acceptée : NOM Prénom »*. If one says *ambiguë* or *aucune correspondance*, fill that student's address in **column C (`Email`) of `Responses`** — an exact e-mail match always wins.
 3. **Journal des actions** is empty — every change you make from now on is recorded there with your address.
+4. **Live updates:** with a student account in a private window, open the link. Switch the student page on and off and add then remove an announcement: within a minute (or on *Actualiser*), the student's tab must follow each change without being reloaded.
+5. **Qualité des données → Réglages enregistrés:** after re-running `setupSheets`, nothing should be marked *Inutile*.
 
 ## 7. Running the campaign (coordinator's checklist)
 
@@ -104,20 +113,24 @@ The bar under the header shows the campaign phase: *Préparation → Choix ouver
 
 ### Script properties (*Project Settings → Script properties*)
 
-| Property | Values | Default | Notes |
-|---|---|---|---|
-| `ADMIN_EMAILS` | comma-separated addresses | `tomader.mazri@uit.ac.ma` | Case-insensitive. If missing or empty, the default applies. |
-| `STUDENT_PAGE_OPEN` | `true` / `false` | `false` | `false` = waiting page; student functions also refuse calls. |
-| `CHOICES_DEADLINE` | `YYYY-MM-DD HH:mm` | — | Script time zone. An unreadable value locks the choices (as before). |
-| `CHOICES_LOCKED` | `true` / `false` | — | Manual lock (as before). |
-| `MIN_SEATS`, `MAX_SEATS` | integers | `12`, `26` | Changed via *Simulation des règles → Appliquer*. |
-| `UNDECIDED_POLICY` | `LAST` / `MANUAL` | `LAST` | Students without saved choices. |
-| `ANNOUNCEMENT` | JSON `{text, level, updatedAt}` | — | Managed by the interface. |
-| `FROZEN_SHEETS` | JSON array (10 newest) | — | Managed by the interface. |
-| `PUBLISHED_SHEET` | JSON `{sheet, at, by}` | — | Present only while results are published. |
-| `PUBLIC_URL` | `https://…` | web-app URL | Optional: link used in reminder e-mails. |
+**Rule: an absent property means the default.** The interface only stores a property while a setting is *active*: turning a setting off, removing it, or setting it back to its default **deletes** the property. So nothing can stay stuck at an old value, and a default changed in the code is never masked by an old copy.
 
-Prefer the interface over editing these by hand: it validates values and writes to the journal.
+| Property | Present when | Absent means | Notes |
+|---|---|---|---|
+| `ADMIN_EMAILS` | you add it by hand (comma-separated) | the administrator listed in the code (`tomader.mazri@uit.ac.ma`) | Case-insensitive. |
+| `STUDENT_PAGE_OPEN` | the page is open (`true`) | page closed: students see the waiting message | Closing the page deletes it. Previews and saves are refused while closed. |
+| `CHOICES_DEADLINE` | a deadline is set (`YYYY-MM-DD HH:mm`) | no deadline | Script time zone. An unreadable value locks the choices. |
+| `CHOICES_LOCKED` | the manual lock is on (`true`) | no manual lock | Unlocking deletes it. |
+| `MIN_SEATS`, `MAX_SEATS` | a rule differs from 12 / 26 | 12 / 26 | Set via *Simulation des règles → Appliquer*. |
+| `UNDECIDED_POLICY` | `MANUAL` | `LAST` (placed last automatically) | |
+| `ANNOUNCEMENT` | an announcement is online | no announcement | Removed by *Retirer* or by saving an empty message. |
+| `FROZEN_SHEETS` | at least one allocation was frozen | none | Sheets deleted by hand are dropped from the list at the next freeze. |
+| `PUBLISHED_SHEET` | results are published | not published | Unpublishing deletes it. |
+| `PUBLIC_URL` | you add it by hand (`https://…`) | the web-app URL | Link used in reminder e-mails. |
+
+*Qualité des données → Réglages enregistrés* lists the properties currently set, flags any that are useless (default value, empty or unreadable) and removes them in one click.
+
+Prefer the interface over editing these by hand: it validates values and writes to the journal. If you do edit them in *Project Settings → Script properties*, **reload that settings page first**: a settings page opened before a change made in the interface still shows the old values, and saving it can write them back.
 
 ### Sheets
 
@@ -178,19 +191,20 @@ Open `Admin.html` or `Dashboard.html` directly in a browser: without `google.scr
 | Symptom | Cause / fix |
 |---|---|
 | A student gets *« Accès refusé : votre adresse … ne correspond à aucun étudiant »* | Use *Tester une adresse de connexion*. Fix the spelling of the name in `Responses`, or put the student's exact address in column C. |
-| A student says “the page is not open yet” | `STUDENT_PAGE_OPEN` is off: switch it on in *Calendrier & accès*. |
+| A student says “the page is not open yet” | `STUDENT_PAGE_OPEN` is off: switch it on in *Calendrier & accès*. Pages already open switch to the dashboard within a minute (or when the student clicks *Actualiser*). |
+| A setting looks stuck (a property is still there after turning it off) | Reload *Project Settings* (it shows a snapshot). Check *Qualité des données → Réglages enregistrés*: it shows what is really stored and removes useless values. Re-run `setupSheets` after updating the code. |
 | *« Serveur occupé, réessayez dans quelques secondes. »* | Many simultaneous saves; the script lock waited 10 s. Retry. |
 | Reminders say *Service d'envoi indisponible* | Run any function once from the editor and accept the e-mail permission. |
 | *« Dépubliez d'abord les résultats. »* | Expected while results are published. Unpublish first (*Résultats officiels → 3*). |
 | A CSV opens with every column after `Note` shifted one place right | The file was exported before the CSV fix: its grades were unquoted and the import also split on commas (`17,74` → `17` \| `74`). Deploy the current code (new version) and export again; splitting lost leading zeros (`16,09` → `16` \| `9`), so don't repair old files by hand. With old files, import with *Semicolon* as the only separator. |
 | A student is listed under *Lignes écartées* | Empty name, duplicate name or unreadable grade on that line of `Responses`. The student cannot log in until it is fixed. |
-| The admin sees the waiting page | Their address is not in `ADMIN_EMAILS` (check spelling), or they are signed in with another Google account. |
+| The admin sees the students' waiting message | Their address is not in `ADMIN_EMAILS` (check spelling), or they are signed in with another Google account. |
 
 ## 13. Assumptions and decisions
 
 The requirements file ended after section 8; sections 9 (admin UI), 10 (mock), 11 (Dashboard changes) and 12 (this guide) were referenced but missing. They were inferred from sections 4–8. Other open points, decided as follows:
 
-1. **Student functions refuse calls while the page is closed.** `getDashboardState`, `previewOdds` and `saveChoices` throw *« Le tableau de bord n'est pas encore ouvert aux étudiants. »* when `STUDENT_PAGE_OPEN` is false (previously callable from the console behind the waiting page). Administrators are always checked first.
+1. **A closed page is a live state, not an error.** Students always receive the dashboard page. While `STUDENT_PAGE_OPEN` is absent, `getDashboardState` returns `{access: 'CLOSED', message, announcement}` (nothing else) and the page shows the unchanged waiting text plus the current announcement. It keeps refreshing every minute, so it switches to the dashboard when the page opens and back to the waiting text when it closes, and a removed announcement disappears from tabs already open. `previewOdds` and `saveChoices` still refuse calls while closed. Administrators are always checked first.
 2. **Publication locks choices.** The effective lock (`locked`) is true while results are published, so students get the usual *« Les choix sont clos »* message rather than *« Dépubliez d'abord »*, which only makes sense to administrators. Publishing itself requires the lock *without* counting the publication (manual lock or deadline passed).
 3. **E-mail column** is used only if `Responses!C1` contains “mail” or “courriel” (e.g. `Email`, `E-mail`, `Courriel`). `setupSheets` writes `Email` there if C1 is empty. Without that header, column C is ignored and behaviour is identical to before.
 4. **Rows with a valid e-mail are matched by e-mail only** (not by name pieces). Invalid, duplicated or administrator addresses are ignored for that row, which falls back to name matching, and are listed in *Qualité des données*.

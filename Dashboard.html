@@ -70,6 +70,12 @@
       <p class="text-slate-500 mt-1 text-sm md:text-base">Simulation des affectations basée sur le mérite et les quotas.</p>
     </div>
 
+    <!-- [V2] Plusieurs actualisations ont échoué : les informations affichées peuvent être périmées -->
+    <div id="staleBanner" class="is-hidden mb-5 flex gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-sm text-amber-900 shadow-sm" role="alert">
+      <svg class="w-5 h-5 shrink-0 mt-0.5 text-amber-500" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+      <p id="staleBannerText" class="min-w-0 break-words leading-relaxed"></p>
+    </div>
+
     <!-- [V2] Annonce de la coordination (texte du serveur via textContent) -->
     <div id="announcementBox" class="is-hidden mb-5 flex gap-3 rounded-xl border px-4 py-3.5 text-sm" role="status">
       <svg id="announcementIcon" class="w-5 h-5 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
@@ -123,6 +129,15 @@
       <h2 class="text-xl font-semibold text-slate-900">Compte de la coordination</h2>
       <p class="mt-3 text-slate-600">Vous êtes connecté(e) avec un compte administrateur : il n'a pas de choix à enregistrer. Le suivi de la campagne se fait dans l'interface de gestion.</p>
       <a id="adminLink" href="#" target="_top" class="mt-6 inline-flex w-full sm:w-auto justify-center items-center bg-blue-700 text-white font-medium py-3 px-6 rounded-lg hover:bg-blue-800 transition-colors shadow-sm">Ouvrir l'interface de gestion</a>
+    </section>
+
+    <!-- [V2] Page fermée par la coordination : texte d'attente inchangé, mis à jour automatiquement -->
+    <section id="closedView" class="is-hidden max-w-xl mx-auto bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 text-center">
+      <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      </div>
+      <p id="closedText" class="text-lg sm:text-xl font-medium text-slate-800 leading-relaxed">Vous pourrez bientôt choisir vos options de spécialité sur cette page.</p>
+      <p class="mt-4 text-xs text-slate-500">Cette page se met à jour automatiquement : votre tableau de bord apparaîtra ici dès son ouverture.</p>
     </section>
 
     <!-- Pas de note : seule cette carte est affichée -->
@@ -415,6 +430,9 @@
     var pollTimer = null;
     var deadlineFired = false;
     var errorKind = null;      // 'validation' | 'action' | 'poll' | null
+    var errorCtx = null;       // [V2] état (accès + verrou) auquel se rapporte l'erreur affichée
+    var pollFails = 0;         // [V2] actualisations automatiques échouées d'affilée
+    var STALE_AFTER_FAILS = 3; // [V2] au-delà, l'annonce et le résultat officiel sont masqués
     var noticeTimer = null;
 
     var selects = Array.prototype.slice.call(document.querySelectorAll('.choice-select'));
@@ -446,10 +464,38 @@
       var t0 = Date.now();
       if (kind === 'preview' || kind === 'save') action = kind; else bgInFlight++;
       syncBusyUI();
+      // [V2] Délai de garde : un appel resté sans réponse ne doit pas bloquer les actualisations suivantes
+      var done = false;
+      var watchdog = setTimeout(function () {
+        if (done) return;
+        done = true;
+        handleError(new Error('Le serveur ne répond pas.'), kind, id);
+      }, (kind === 'preview' || kind === 'save') ? 90000 : 45000);
       server(
-        function (res) { onResponse(res, kind, id, t0); },
-        function (err) { handleError(err, kind, id); }
+        function (res) { if (done) return; done = true; clearTimeout(watchdog); onResponse(res, kind, id, t0); },
+        function (err) { if (done) return; done = true; clearTimeout(watchdog); handleError(err, kind, id); }
       )[fn](arg);
+    }
+
+    // [V2] Accès et verrou effectif d'un état : une erreur devient caduque quand ils changent
+    function stateKey(s) {
+      if (!s) return '';
+      var d = s.access === 'OK' && s.deadline ? parseIso(s.deadline) : null;
+      return String(s.access) + '|' + (s.access === 'OK' && (s.locked === true || (d !== null && serverNow() >= d)));
+    }
+
+    // [V2] État inconnu (page ouverte avant une mise à jour du serveur) : rien de périmé à l'écran
+    function showReloadNeeded(kind) {
+      settle(kind);
+      state = null;
+      lastUpdateAt = 0;
+      ['dashView', 'closedView', 'adminView', 'noGradeView', 'announcementBox', 'officialCard', 'disclaimer', 'staleBanner'].forEach(function (id) { show($(id), false); });
+      $('bootErrorText').textContent = 'Cette page a été mise à jour : rechargez-la (ou rouvrez le lien).';
+      show($('bootView'), true);
+      show($('bootLoading'), false);
+      show($('bootError'), true);
+      syncBusyUI();
+      schedulePoll();
     }
 
     function settle(kind) {
@@ -465,8 +511,13 @@
 
     function onResponse(res, kind, id, t0) {
       // [V2] access 'ADMIN' : compte de la coordination, redirigé vers l'interface de gestion
-      if (!res || typeof res !== 'object' || (res.access !== 'NO_GRADE' && res.access !== 'OK' && res.access !== 'ADMIN')) {
+      // [V2] access 'CLOSED' : page fermée par la coordination (attente, mise à jour automatique)
+      if (!res || typeof res !== 'object') {
         handleError(new Error('Réponse inattendue du serveur. Réessayez dans un instant.'), kind, id);
+        return;
+      }
+      if (res.access !== 'NO_GRADE' && res.access !== 'OK' && res.access !== 'ADMIN' && res.access !== 'CLOSED') {
+        showReloadNeeded(kind); // [V2]
         return;
       }
       settle(kind);
@@ -477,6 +528,15 @@
         state = res;
         lastUpdateAt = Date.now();
         lastPollFailed = false;
+        pollFails = 0;                     // [V2]
+        show($('staleBanner'), false);     // [V2]
+        // [V2] Erreur d'action ou de saisie : elle adopte l'état qui suit le refus, et s'efface dès que
+        // l'accès ou le verrou change (page rouverte, choix rouverts…) au lieu de rester affichée
+        if (errorKind === 'action' || errorKind === 'validation') {
+          var key = stateKey(res);
+          if (errorCtx === null) errorCtx = key;
+          else if (errorCtx !== key) clearError();
+        }
         if (kind === 'preview' || kind === 'save' || errorKind === 'poll') clearError();
         render();
         if (kind === 'save') showSaveNotice();
@@ -493,6 +553,15 @@
       syncBusyUI();
       var msg = (err && err.message) ? String(err.message) : String(err || 'Erreur inconnue.');
       if (kind === 'poll') lastPollFailed = true;
+      // [V2] Plusieurs échecs d'affilée : on n'affiche plus d'annonce ni de résultat qui pourraient être périmés
+      if (kind === 'poll' || kind === 'load') pollFails++;
+      if (pollFails >= STALE_AFTER_FAILS && state && state.access !== 'ADMIN') {
+        show($('announcementBox'), false);
+        show($('officialCard'), false);
+        $('staleBannerText').textContent = "Cette page n'est plus à jour depuis " + (lastUpdateAt ? fmtAgo(Date.now() - lastUpdateAt).replace(/^il y a /, '') : 'un moment') +
+          ' : la connexion au serveur échoue. Rechargez la page (bouton Actualiser du navigateur). Détail : ' + msg;
+        show($('staleBanner'), true);
+      }
       if (!state) {
         $('bootErrorText').textContent = msg;
         show($('bootError'), true);
@@ -503,13 +572,15 @@
       updateSyncText();
       schedulePoll();
       // Enregistrement refusé (clôture, verrou…) : relire l'état tout de suite, sans attendre le prochain cycle
-      if (kind === 'save' && state) refresh();
+      // [V2] … et de même après une prévisualisation refusée (ex. page fermée entre-temps)
+      if ((kind === 'save' || kind === 'preview') && state) refresh();
     }
 
     function showError(msg, kind) {
       var box = $('errorBox');
       box.textContent = msg;
       errorKind = kind;
+      errorCtx = kind === 'action' ? null : stateKey(state); // [V2]
       // Dans la vue « pas de note », la carte d'erreur du chargement sert de zone d'erreur
       if (!isOk() && state) {
         $('bootErrorText').textContent = msg;
@@ -521,6 +592,7 @@
     }
     function clearError() {
       errorKind = null;
+      errorCtx = null; // [V2]
       $('errorBox').textContent = '';
       show($('errorBox'), false);
       selects.forEach(function (s) { s.removeAttribute('aria-invalid'); });
@@ -630,6 +702,12 @@
         return;
       }
       show($('adminView'), false);
+      // [V2] Page fermée : l'onglet ouvert bascule sur l'attente (plus de données périmées)
+      if (state.access === 'CLOSED') {
+        renderClosed();
+        return;
+      }
+      show($('closedView'), false);
       if (state.access === 'NO_GRADE') {
         renderNoGrade();
         return;
@@ -678,7 +756,20 @@
     }
 
     // [V2] Compte administrateur : lien vers l'interface de gestion (URL fournie par le serveur)
+    // [V2] Page fermée : texte d'attente et annonce en cours, le suivi continue (bascule à la réouverture)
+    function renderClosed() {
+      show($('dashView'), false);
+      show($('noGradeView'), false);
+      show($('disclaimer'), false);
+      show($('syncBar'), true);
+      $('closedText').textContent = typeof state.message === 'string' && state.message ? state.message : 'Vous pourrez bientôt choisir vos options de spécialité sur cette page.';
+      show($('closedView'), true);
+      renderAnnouncement();
+      syncBusyUI();
+    }
+
     function renderAdmin() {
+      show($('closedView'), false);
       show($('dashView'), false);
       show($('noGradeView'), false);
       show($('syncBar'), false);
@@ -1135,6 +1226,7 @@
     //   ?mock=SECURE | FALLBACK_SECURED | VULNERABLE | NO_CHOICES | NO_GRADE | LOCKED | ADMIN | PUBLISHED
     //   &annonce=info | warning   annonce de la coordination ([V2])
     //   &absent=1          avec PUBLISHED : étudiant absent de la feuille publiée ([V2])
+    //   ?mock=CLOSED&ouvre=<secondes>   page fermée, rouverte automatiquement après ce délai ([V2])
     //   &deadline=future | soon | past | none | <secondes>   (date limite relative)
     //   &locked=1          fermeture « administrative » (sans dépasser la date)
     //   &skew=<minutes>    décale l'horloge du faux serveur (horloge du téléphone fausse)
@@ -1143,7 +1235,7 @@
     // =====================================================================
     function createMock() {
       var q = new URLSearchParams(location.search);
-      var SCENARIOS = ['SECURE', 'FALLBACK_SECURED', 'VULNERABLE', 'NO_CHOICES', 'NO_GRADE', 'LOCKED', 'ADMIN', 'PUBLISHED']; // [V2]
+      var SCENARIOS = ['SECURE', 'FALLBACK_SECURED', 'VULNERABLE', 'NO_CHOICES', 'NO_GRADE', 'LOCKED', 'ADMIN', 'PUBLISHED', 'CLOSED']; // [V2]
       var sc = String(q.get('mock') || 'SECURE').toUpperCase();
       if (SCENARIOS.indexOf(sc) === -1) sc = 'SECURE';
       var skewMs = (Number(q.get('skew')) || 0) * 60000;
@@ -1170,7 +1262,8 @@
         NO_CHOICES:       { gradesSubmitted: 70, undecidedAbove: 9, tied: 2 },
         NO_GRADE:         { gradesSubmitted: 70, undecidedAbove: 9, tied: 2 },
         LOCKED:           { gradesSubmitted: 70, undecidedAbove: 0, tied: 0 },
-        PUBLISHED:        { gradesSubmitted: 70, undecidedAbove: 0, tied: 0 }
+        PUBLISHED:        { gradesSubmitted: 70, undecidedAbove: 0, tied: 0 },
+        CLOSED:           { gradesSubmitted: 70, undecidedAbove: 0, tied: 0 }
       };
       var others = {};
       others[CY] = { c1: 19, c2: 9, c3: 6 };
@@ -1201,6 +1294,8 @@
         ? { published: true, branch: q.get('absent') === '1' ? null : CY, choiceRank: q.get('absent') === '1' ? null : 1, publishedAt: new Date(t0 - 3600 * 1000).toISOString() }
         : null;
       var ADMIN_URL = 'https://script.google.com/a/macros/uit.ac.ma/s/EXEMPLE/exec';
+      var OPEN_AT = sc === 'CLOSED' && Number(q.get('ouvre')) > 0 ? t0 + Number(q.get('ouvre')) * 1000 : null;
+      function pageClosed() { return sc === 'CLOSED' && (OPEN_AT === null || now() < OPEN_AT); }
 
       function locked() { return db.adminLock || (deadline !== null && now() >= deadline); }
 
@@ -1211,7 +1306,7 @@
         }
         var status = sc;
         if (sc === 'NO_CHOICES' || sc === 'NO_GRADE') status = BY_FIRST[ch[0]] || 'SECURE';
-        if (sc === 'LOCKED' || sc === 'PUBLISHED') status = 'SECURE';
+        if (sc === 'LOCKED' || sc === 'PUBLISHED' || sc === 'CLOSED') status = 'SECURE';
         var p = { status: status, choices: ch.slice(), isSaved: sameChoices(ch, db.saved), reason: null };
         if (status === 'SECURE') {
           p.bestBranch = p.worstBranch = ch[0];
@@ -1231,6 +1326,7 @@
 
       function buildState(choices) {
         if (sc === 'ADMIN') return { access: 'ADMIN', adminUrl: ADMIN_URL }; // [V2]
+        if (pageClosed()) return { access: 'CLOSED', message: 'Vous pourrez bientôt choisir vos options de spécialité sur cette page.', announcement: ANNOUNCEMENT, serverTime: new Date(now()).toISOString(), timeZone: 'Africa/Casablanca' }; // [V2]
         if (!db.hasGrade) {
           return { access: 'NO_GRADE', formUrl: FORM_URL,
             message: "Aucune note n'est enregistrée pour votre compte. Soumettez d'abord votre note via le formulaire : le tableau de bord sera disponible ensuite." };
@@ -1275,7 +1371,7 @@
        ['NO_CHOICES', '?mock=NO_CHOICES'], ['NO_GRADE', '?mock=NO_GRADE'], ['LOCKED', '?mock=LOCKED'],
        ['fermé sans date', '?mock=SECURE&deadline=none&locked=1'], ['sans date limite', '?mock=SECURE&deadline=none'],
        ['échéance 15 s', '?mock=SECURE&deadline=soon'], ['erreur enregistrement', '?mock=VULNERABLE&fail=save'],
-       ['ADMIN', '?mock=ADMIN'], ['PUBLISHED', '?mock=PUBLISHED'], ['absent de la liste publiée', '?mock=PUBLISHED&absent=1'],
+       ['ADMIN', '?mock=ADMIN'], ['CLOSED', '?mock=CLOSED&annonce=info'], ['réouverture après 20 s', '?mock=CLOSED&ouvre=20&poll=5'], ['PUBLISHED', '?mock=PUBLISHED'], ['absent de la liste publiée', '?mock=PUBLISHED&absent=1'],
        ['annonce', '?mock=VULNERABLE&annonce=warning']
       ].forEach(function (s, i) {
         if (i) banner.appendChild(document.createTextNode(' · '));
@@ -1307,6 +1403,7 @@
             },
             previewOdds: function (choices) {
               respond(function () {
+                if (pageClosed()) throw new Error("Le tableau de bord n'est pas encore ouvert aux étudiants."); // [V2]
                 if (sc === 'ADMIN') throw new Error("Ce compte est un compte administrateur : il n'a pas de choix à prévisualiser ni à enregistrer."); // [V2]
                 if (fail === 'preview') throw new Error('Le serveur est occupé. Réessayez dans quelques secondes.');
                 if (!db.hasGrade) throw new Error("Soumettez d'abord votre note.");
@@ -1316,6 +1413,7 @@
             },
             saveChoices: function (choices) {
               respond(function () {
+                if (pageClosed()) throw new Error("Le tableau de bord n'est pas encore ouvert aux étudiants."); // [V2]
                 if (sc === 'ADMIN') throw new Error("Ce compte est un compte administrateur : il n'a pas de choix à prévisualiser ni à enregistrer."); // [V2]
                 if (fail === 'save') throw new Error("Le serveur est occupé : vos choix n'ont pas été enregistrés. Réessayez dans quelques secondes.");
                 if (!db.hasGrade) throw new Error("Soumettez d'abord votre note.");
