@@ -81,6 +81,7 @@ If any line says `FAIL`, stop here and roll back (§9).
 |---|---|---|
 | Coordinator (tomader.mazri@uit.ac.ma) | | **Management interface**: ENSA Kénitra logo, “Affectation des spécialités”, *Université Ibn Tofail · CI2* |
 | A student account | | Waiting message: *« Vous pourrez bientôt choisir vos options de spécialité sur cette page. »* (it turns into the dashboard by itself, within a minute, once you open the page) |
+| A uit.ac.ma account that is **not** in `Responses` | | *« Accès non autorisé »* card, **even while the page is closed**, with the address used. It turns into the waiting page or the dashboard by itself once the student is added to the list |
 | A non-uit.ac.ma Google account | | *« Connexion requise »* page |
 
 Then, in the management interface:
@@ -215,7 +216,7 @@ Open `Admin.html` or `Dashboard.html` directly in a browser: without `google.scr
 
 | Symptom | Cause / fix |
 |---|---|
-| A student gets *« Accès refusé : votre adresse … ne correspond à aucun étudiant »* | Use *Tester une adresse de connexion*. Fix the spelling of the name in `Responses`, or put the student's exact address in column C. |
+| A student sees *« Accès non autorisé »* (*« Votre adresse … ne correspond à aucun étudiant … »*), even before the page is open | Use *Tester une adresse de connexion*. Fix the spelling of the name in `Responses`, or put the student's exact address in column C. |
 | A student says “the page is not open yet” | `STUDENT_PAGE_OPEN` is off: switch it on in *Calendrier & accès*. Pages already open switch to the dashboard within a minute (or when the student clicks *Actualiser*). |
 | A setting looks stuck (a property is still there after turning it off) | Reload *Project Settings* (it shows a snapshot). Check *Qualité des données → Réglages enregistrés*: it shows what is really stored and removes useless values. Re-run `setupSheets` after updating the code. |
 | *« Serveur occupé, réessayez dans quelques secondes. »* | Many simultaneous saves; the script lock waited 10 s. Retry. |
@@ -231,7 +232,7 @@ Open `Admin.html` or `Dashboard.html` directly in a browser: without `google.scr
 
 The requirements file ended after section 8; sections 9 (admin UI), 10 (mock), 11 (Dashboard changes) and 12 (this guide) were referenced but missing. They were inferred from sections 4–8. Other open points, decided as follows:
 
-1. **A closed page is a live state, not an error.** Students always receive the dashboard page. While `STUDENT_PAGE_OPEN` is absent, `getDashboardState` returns `{access: 'CLOSED', message, announcement}` (nothing else) and the page shows the unchanged waiting text plus the current announcement. It keeps refreshing every minute, so it switches to the dashboard when the page opens and back to the waiting text when it closes, and a removed announcement disappears from tabs already open. `previewOdds` and `saveChoices` still refuse calls while closed. Administrators are always checked first.
+1. **A closed page is a live state, not an error.** *(The identity check now comes first: a uit.ac.ma account that does not match exactly one student gets `{access: 'DENIED', message}` whether the page is open or not, so unlisted students find out — and can ask for a fix — before the campaign starts. If the official list cannot be read while the page is closed, the waiting page is shown.)* Students always receive the dashboard page. While `STUDENT_PAGE_OPEN` is absent, `getDashboardState` returns `{access: 'CLOSED', message, announcement}` (nothing else) and the page shows the unchanged waiting text plus the current announcement. It keeps refreshing every minute, so it switches to the dashboard when the page opens and back to the waiting text when it closes, and a removed announcement disappears from tabs already open. `previewOdds` and `saveChoices` still refuse calls while closed. Administrators are always checked first.
 2. **Publication locks choices.** The effective lock (`locked`) is true while results are published, so students get the usual *« Les choix sont clos »* message rather than *« Dépubliez d'abord »*, which only makes sense to administrators. Publishing itself requires the lock *without* counting the publication (manual lock or deadline passed).
 3. **E-mail column** is used only if `Responses!C1` contains “mail” or “courriel” (e.g. `Email`, `E-mail`, `Courriel`). `setupSheets` writes `Email` there if C1 is empty. Without that header, column C is ignored and behaviour is identical to before.
 4. **Rows with a valid e-mail are matched by e-mail only** (not by name pieces). Invalid, duplicated or administrator addresses are ignored for that row, which falls back to name matching, and are listed in *Qualité des données*.

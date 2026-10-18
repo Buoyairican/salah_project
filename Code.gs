@@ -97,7 +97,7 @@ const SOURCES = ['ALGO', 'TIEBREAK', 'MANUAL', 'AUTO'];
 // [V2] Historique : origine d'un classement (SPECIALITES = mis à jour après un changement de la liste)
 const HISTORY_SOURCES = ['ETUDIANT', 'ADMIN', 'SPECIALITES'];
 
-const APP_VERSION = 'V2.5 (2026-10-18)'; // [V2] affichée dans l'interface : vérifie que /exec sert la bonne version
+const APP_VERSION = 'V2.6 (2026-10-18)'; // [V2] affichée dans l'interface : vérifie que /exec sert la bonne version
 const WAITING_TEXT = 'Vous pourrez bientôt choisir vos options de spécialité sur cette page.';
 const ACCESS_DENIED_MESSAGE = 'Accès refusé.';
 const UNPUBLISH_FIRST_MESSAGE = "Dépubliez d'abord les résultats.";
@@ -1139,12 +1139,37 @@ function getDashboardState(choices) {
   const email = activeEmail_();
   const props = scriptProps_(); // [V2] lues une seule fois pour toute la requête
   if (isAdmin_(email, props)) return { access: 'ADMIN', adminUrl: webAppUrl_(), program: programInfo_() };
+  const open = studentPageOpen_(props);
+  // [V2] Identité vérifiée même page fermée : un étudiant absent de la liste le sait dès sa première visite.
+  // Page fermée et liste illisible : on ne peut rien vérifier, la page d'attente s'affiche.
+  let snap = null;
+  try {
+    snap = loadSnapshot_();
+  } catch (e) {
+    if (open) throw e;
+    Logger.log('Liste officielle illisible (page fermée) : ' + e);
+  }
+  const denied = snap ? deniedState_(email, snap) : null;
+  if (denied) return denied;
   // [V2] Page fermée : un état dédié (et non une erreur), pour qu'un onglet déjà ouvert bascule
   // sur la page d'attente et cesse d'afficher d'anciennes données ou une annonce retirée.
-  if (!studentPageOpen_(props)) return closedState_(props);
-  const snap = loadSnapshot_();
+  if (!open) return closedState_(props);
   const name = currentUserName_(snap, props);
   return buildState_(snap, name, normalizeChoices_(choices), props);
+}
+
+// [V2] Étudiant non reconnu (absent de la liste, nom ambigu, compte hors domaine) : un état dédié,
+// rafraîchi comme les autres, qui bascule seul sur le tableau de bord une fois la liste corrigée.
+function deniedState_(email, snap) {
+  // Adresse non transmise par Google : ce n'est pas un refus de la liste (page d'attente, ou erreur si ouverte)
+  if (!email) return null;
+  let message = null;
+  if (!email.endsWith('@' + DOMAIN)) message = 'Connectez-vous avec votre compte institutionnel @' + DOMAIN + '.';
+  else if (resolveStudent_(email, snap.rows).verdict !== 'OK') {
+    message = 'Votre adresse ' + email + ' ne correspond à aucun étudiant inscrit sur la liste officielle ' + PROGRAM.name + '.';
+  }
+  if (!message) return null;
+  return { access: 'DENIED', message: message, program: programInfo_(), serverTime: new Date().toISOString() };
 }
 
 function previewOdds(userChoices) {
