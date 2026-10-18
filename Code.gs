@@ -12,7 +12,7 @@ const CLASS_SIZE = 70; // effectif officiel de la promo CI2 RST ([V2] défaut de
 const MAX_SEATS = 26;  // plafond maximal strict par filière fixé par la coordination ([V2] défaut de MAX_SEATS)
 
 // --- [V2] Formation : nom affiché (propriété PROGRAM_NAME) et bornes de la liste des spécialités ---
-const DEFAULT_PROGRAM_NAME = 'CI2 RST';
+const DEFAULT_PROGRAM_NAME = 'CI2';
 const PROGRAM_NAME_MAX_LENGTH = 40;
 const BRANCH_NAME_MAX_LENGTH = 60;
 const MIN_BRANCHES = 2;
@@ -47,6 +47,7 @@ const LOCKED_MESSAGE = "Les choix sont clos : plus aucune modification n'est acc
 
 // Administrateurs : propriété ADMIN_EMAILS (séparées par des virgules), sinon cette liste
 const DEFAULT_ADMIN_EMAILS = ['tomader.mazri@uit.ac.ma'];
+const ADMIN_LIST_MAX = 20; // [V2] administrateurs ajoutés depuis l'interface
 
 const ADMIN_EMAILS_PROPERTY = 'ADMIN_EMAILS';
 const STUDENT_PAGE_OPEN_PROPERTY = 'STUDENT_PAGE_OPEN';
@@ -96,7 +97,7 @@ const SOURCES = ['ALGO', 'TIEBREAK', 'MANUAL', 'AUTO'];
 // [V2] Historique : origine d'un classement (SPECIALITES = mis à jour après un changement de la liste)
 const HISTORY_SOURCES = ['ETUDIANT', 'ADMIN', 'SPECIALITES'];
 
-const APP_VERSION = 'V2.4 (2026-10-18)'; // [V2] affichée dans l'interface : vérifie que /exec sert la bonne version
+const APP_VERSION = 'V2.5 (2026-10-18)'; // [V2] affichée dans l'interface : vérifie que /exec sert la bonne version
 const WAITING_TEXT = 'Vous pourrez bientôt choisir vos options de spécialité sur cette page.';
 const ACCESS_DENIED_MESSAGE = 'Accès refusé.';
 const UNPUBLISH_FIRST_MESSAGE = "Dépubliez d'abord les résultats.";
@@ -1971,6 +1972,7 @@ function buildOverview_(ctx) {
       mail: mailInfo_(ctx.snap),
       studentUrl: publicUrl_(ctx.props),
       properties: settingsReport_(ctx.props), // [V2]
+      admins: adminEmails_(ctx.props), // [V2] liste en vigueur (propriété ADMIN_EMAILS, sinon celle du code)
       version: APP_VERSION,
       deployment: deploymentInfo_(ctx.props)
     },
@@ -2894,6 +2896,46 @@ function adminSendReminders(req) {
 }
 
 // =========================================================================
+// [V2] ADMINISTRATEURS (propriété ADMIN_EMAILS ; absente = liste inscrite dans le code)
+// =========================================================================
+
+function adminAddAdmin(email) {
+  const admin = requireAdmin_();
+  const target = String(email || '').toLowerCase().trim();
+  const pattern = new RegExp('^[a-z0-9._%+\\-]+@' + DOMAIN.replace(/\./g, '\\.') + '$');
+  if (!pattern.test(target)) throw new Error('Adresse invalide : saisissez une adresse @' + DOMAIN + '.');
+  return adminWrite_(admin, 'ADMINISTRATEURS', function(ss, props) {
+    const list = adminEmails_(props);
+    if (list.indexOf(target) !== -1) return { notice: target + ' est déjà administrateur.', details: null };
+    if (list.length >= ADMIN_LIST_MAX) throw new Error(ADMIN_LIST_MAX + ' administrateurs au plus.');
+    // Un administrateur n'a pas de tableau de bord étudiant : jamais l'adresse d'un étudiant de la liste
+    const found = resolveStudent_(target, readSnapshot_(ss).rows);
+    if (found.verdict === 'OK') throw new Error('Cette adresse correspond à un étudiant de la liste officielle (' + found.matches[0] + ') : il ne pourrait plus choisir sa spécialité.');
+    saveAdmins_(list.concat([target]));
+    return { notice: target + ' est désormais administrateur.', details: 'Administrateur ajouté : ' + target };
+  });
+}
+
+function adminRemoveAdmin(email) {
+  const admin = requireAdmin_();
+  const target = String(email || '').toLowerCase().trim();
+  return adminWrite_(admin, 'ADMINISTRATEURS', function(ss, props) {
+    const list = adminEmails_(props);
+    if (list.indexOf(target) === -1) throw new Error(target + " n'est pas administrateur.");
+    if (target === admin) throw new Error('Vous ne pouvez pas retirer votre propre adresse : demandez-le à un autre administrateur.');
+    saveAdmins_(list.filter(function(e) { return e !== target; }));
+    return { notice: target + " n'est plus administrateur.", details: 'Administrateur retiré : ' + target };
+  });
+}
+
+// Liste égale à celle du code → propriété supprimée (une propriété absente vaut la valeur par défaut)
+function saveAdmins_(list) {
+  const store = PropertiesService.getScriptProperties();
+  if (list.slice().sort().join(',') === DEFAULT_ADMIN_EMAILS.slice().sort().join(',')) store.deleteProperty(ADMIN_EMAILS_PROPERTY);
+  else store.setProperty(ADMIN_EMAILS_PROPERTY, list.join(', '));
+}
+
+// =========================================================================
 // [V2] FORMATION ET SPÉCIALITÉS
 // Renommer garde la place de la spécialité dans chaque classement enregistré ; une spécialité
 // ajoutée est placée en dernier choix ; une spécialité retirée disparaît des classements (l'ordre
@@ -2908,7 +2950,7 @@ function adminSetProgram(req) {
   const admin = requireAdmin_();
   req = req || {};
   const name = cleanText_(req.name, PROGRAM_NAME_MAX_LENGTH, 'Le nom de la formation');
-  if (!name) throw new Error('Indiquez le nom de la formation (par exemple « CI2 RST »).');
+  if (!name) throw new Error('Indiquez le nom de la formation (par exemple « CI2 »).');
   const classSize = toInt_(req.classSize);
   if (classSize === null || classSize < 1 || classSize > 999) throw new Error("L'effectif attendu doit être un nombre entier entre 1 et 999.");
   if (!Array.isArray(req.branches) || !Array.isArray(req.base)) throw new Error('Liste des spécialités invalide : rechargez la page.');

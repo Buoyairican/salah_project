@@ -37,24 +37,22 @@
   <!-- Bandeau du mode démo (affiché seulement hors Apps Script) -->
   <div id="mockBanner" class="is-hidden border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900"></div>
 
-  <!-- [V2] En-tête institutionnel -->
-  <header class="bg-[#0b1f3a] text-white">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:h-16 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-      <div class="flex items-center gap-3 min-w-0">
-        <div class="w-10 h-10 shrink-0 rounded-xl bg-white/10 ring-1 ring-white/15 flex items-center justify-center text-sky-200">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14l9-5-9-5-9 5 9 5z"></path><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"></path><path d="M12 14v6"></path></svg>
-        </div>
-        <div class="min-w-0">
-          <div id="programLabel" class="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-200/80 truncate">Université Ibn Tofail</div>
-          <div class="text-base sm:text-lg font-semibold leading-tight truncate">Choix de la spécialité</div>
+  <!-- [V2] En-tête : logo de l'école, titre, actualisation -->
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div class="flex items-center gap-3 sm:gap-4 min-w-0">
+        <img src="data:image/png;base64,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" alt="ENSA Kénitra" class="h-9 sm:h-11 w-auto shrink-0">
+        <div class="min-w-0 border-l border-slate-200 pl-3 sm:pl-4">
+          <div class="text-base sm:text-lg font-semibold leading-tight text-slate-900 truncate">Choix de la spécialité</div>
+          <div id="programLabel" class="text-xs text-slate-500 truncate">Université Ibn Tofail</div>
         </div>
       </div>
-      <div id="syncBar" class="is-hidden flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-300">
+      <div id="syncBar" class="is-hidden flex items-center gap-3 text-xs text-slate-500">
         <span class="inline-flex items-center gap-2">
           <span id="syncDot" class="inline-block w-2 h-2 rounded-full bg-slate-400"></span>
           <span id="syncText" class="tabular">Chargement…</span>
         </span>
-        <button type="button" id="refreshBtn" class="inline-flex items-center gap-1.5 rounded-lg bg-white/10 hover:bg-white/20 px-3 py-1.5 text-sm font-medium text-white ring-1 ring-white/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+        <button type="button" id="refreshBtn" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
           Actualiser
         </button>
@@ -63,12 +61,6 @@
   </header>
 
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 md:py-8">
-
-    <!-- En-tête de page -->
-    <div class="mb-6">
-      <h1 class="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">Tableau de bord d'affectation</h1>
-      <p class="text-slate-500 mt-1 text-sm md:text-base">Simulation des affectations basée sur le mérite et les quotas.</p>
-    </div>
 
     <!-- [V2] Plusieurs actualisations ont échoué : les informations affichées peuvent être périmées -->
     <div id="staleBanner" class="is-hidden mb-5 flex gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-sm text-amber-900 shadow-sm" role="alert">
@@ -105,7 +97,7 @@
     <!-- Avertissement -->
     <p id="disclaimer" class="is-hidden mb-6 flex gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm text-slate-700 shadow-sm">
       <svg class="w-5 h-5 shrink-0 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-      <span><strong id="disclaimerTitle" class="font-semibold text-slate-900">Simulation indicative.</strong> <span id="disclaimerText">Elle est calculée à partir de la liste officielle des notes et des choix enregistrés à ce jour. Ce n'est pas l'affectation définitive : seule la coordination publie les résultats officiels.</span></span>
+      <span><strong id="disclaimerTitle" class="font-semibold text-slate-900">Simulation indicative.</strong> <span id="disclaimerText">Seule la coordination publie les résultats officiels.</span></span>
     </p>
 
     <!-- Chargement initial / erreur de chargement -->
@@ -127,7 +119,7 @@
         <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
       </div>
       <h2 class="text-xl font-semibold text-slate-900">Compte de la coordination</h2>
-      <p class="mt-3 text-slate-600">Vous êtes connecté(e) avec un compte administrateur : il n'a pas de choix à enregistrer. Le suivi de la campagne se fait dans l'interface de gestion.</p>
+      <p class="mt-3 text-slate-600">Ce compte est un compte administrateur.</p>
       <a id="adminLink" href="#" target="_top" class="mt-6 inline-flex w-full sm:w-auto justify-center items-center bg-blue-700 text-white font-medium py-3 px-6 rounded-lg hover:bg-blue-800 transition-colors shadow-sm">Ouvrir l'interface de gestion</a>
     </section>
 
@@ -137,7 +129,6 @@
         <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
       </div>
       <p id="closedText" class="text-lg sm:text-xl font-medium text-slate-800 leading-relaxed">Vous pourrez bientôt choisir vos options de spécialité sur cette page.</p>
-      <p class="mt-4 text-xs text-slate-500">Cette page se met à jour automatiquement : votre tableau de bord apparaîtra ici dès son ouverture.</p>
     </section>
 
     <!-- Pas de note : seule cette carte est affichée -->
@@ -167,7 +158,6 @@
             <div class="flex items-end justify-between gap-3 pb-4 border-b border-slate-100">
               <div>
                 <div class="text-sm text-slate-500">Votre note</div>
-                <div class="text-xs text-slate-400">liste officielle de la promotion</div>
               </div>
               <span class="text-3xl font-semibold tracking-tight text-slate-900 tabular"><span id="gradeValue">—</span><span class="text-base font-medium text-slate-400"> / 20</span></span>
             </div>
@@ -192,7 +182,7 @@
             <h2 class="text-base sm:text-lg font-semibold text-slate-900">Vos préférences</h2>
           </div>
           <div class="px-5 sm:px-6 py-5">
-            <p class="text-sm text-slate-500 mb-5">Classez les <span id="branchCount">3</span> filières, de la plus souhaitée à la moins souhaitée. Chaque filière ne peut être choisie qu'une fois : pour changer l'ordre, appuyez d'abord sur «&nbsp;Effacer&nbsp;».</p>
+            <p class="text-sm text-slate-500 mb-5">Classez les <span id="branchCount">3</span> filières par ordre de préférence.</p>
 
             <form id="preferencesForm" class="space-y-4" novalidate>
               <!-- [V2] Une liste par spécialité : reconstruites si le nombre de spécialités change -->
@@ -297,25 +287,11 @@
       </div>
     </main>
 
-    <footer class="mt-10 border-t border-slate-200 pt-5 text-xs text-slate-500">
-      <div class="flex flex-col sm:flex-row gap-1 sm:justify-between">
-        <span id="footerProgram">Université Ibn Tofail · Affectation des spécialités</span>
-        <span>Une question ? Adressez-vous à la coordination de la filière.</span>
-      </div>
+    <footer class="mt-10 border-t border-slate-200 pt-5 pb-2 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+      <span id="footerProgram">Université Ibn Tofail</span>
       <!-- [V2] Signature de l'équipe de conception (fixe, indépendante de la formation) -->
-      <p class="mt-4 flex justify-center">
-        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm">
-          <svg class="w-3.5 h-3.5 text-blue-700" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
-          Conçu et développé par les étudiants de la filière RST
-        </span>
-      </p>
+      <span class="font-medium text-slate-600">Conçu et développé par les étudiants de la filière RST</span>
     </footer>
-  </div>
-
-  <!-- [V2] Filigrane permanent (grands écrans, dans la marge : ne masque jamais le contenu) -->
-  <div class="hidden 2xl:flex fixed bottom-4 right-4 z-10 pointer-events-none select-none items-center gap-1.5 rounded-full bg-[#0b1f3a]/85 px-3 py-1.5 text-[11px] font-medium text-white/90 shadow-lg" aria-hidden="true">
-    <svg class="w-3.5 h-3.5 text-sky-300" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
-    Réalisé par les étudiants RST
   </div>
 
   <script>
@@ -715,7 +691,7 @@
     function renderProgram() {
       var name = state && state.program && typeof state.program.name === 'string' ? state.program.name : '';
       $('programLabel').textContent = 'Université Ibn Tofail' + (name ? ' · ' + name : '');
-      $('footerProgram').textContent = 'Université Ibn Tofail' + (name ? ' · ' + name : '') + ' · Affectation des spécialités';
+      $('footerProgram').textContent = 'Université Ibn Tofail' + (name ? ' · ' + name : '');
     }
 
     function render() {
@@ -839,8 +815,8 @@
       var published = !!(o && o.published === true);
       $('disclaimerTitle').textContent = published ? 'Les résultats officiels sont publiés.' : 'Simulation indicative.';
       $('disclaimerText').textContent = published
-        ? 'Votre filière officielle est indiquée ci-dessus. La simulation ci-dessous reste indicative et ne remplace pas la décision publiée.'
-        : "Elle est calculée à partir de la liste officielle des notes et des choix enregistrés à ce jour. Ce n'est pas l'affectation définitive : seule la coordination publie les résultats officiels.";
+        ? 'Votre filière officielle est indiquée ci-dessus.'
+        : 'Seule la coordination publie les résultats officiels.';
       var card = $('officialCard');
       show(card, published);
       if (!published) return;
@@ -1053,26 +1029,10 @@
       var grid = el('div', 'grid grid-cols-2 gap-3');
       append(grid,
         miss > 0 ? coverageTile('Notes manquantes', fmtInt(miss), 'rang inconnu : ils peuvent être devant vous', true) : null,
-        coverageTile('Indécis devant vous', fmtInt(und), 'note supérieure à la vôtre, aucun choix enregistré', und > 0),
-        coverageTile('Égalités', fmtInt(tied), 'même note que vous : départage inconnu', tied > 0));
+        coverageTile('Sans choix devant vous', fmtInt(und), null, und > 0),
+        coverageTile('À égalité avec vous', fmtInt(tied), null, tied > 0));
       body.appendChild(grid);
 
-      var parts = [];
-      if (miss > 0) parts.push(plural(miss, 'étudiant sans note', 'étudiants sans note'));
-      if (und > 0) parts.push(plural(und, 'indécis classé devant vous', 'indécis classés devant vous'));
-      if (tied > 0) parts.push(plural(tied, 'étudiant à égalité avec vous', 'étudiants à égalité avec vous'));
-      var expl = el('p', 'mt-4 text-sm text-slate-700 leading-relaxed');
-      if (!parts.length) {
-        expl.textContent = "Tous les étudiants qui pourraient passer devant vous ont une note et des choix enregistrés : la projection ne dépend plus d'inconnues, tant que personne ne modifie ses choix.";
-      } else {
-        append(expl,
-          el('strong', 'font-semibold text-slate-900', 'Pourquoi un résultat peut être « Incertain » : '),
-          'dans le pire cas, la simulation place devant vous ' + joinFr(parts) +
-          ', et retient, parmi tous les choix possibles de ceux dont les choix sont inconnus, le plus défavorable pour vous. Dans le meilleur cas, ils ne prennent pas votre place. ' +
-          'Si les deux cas mènent à des filières différentes, le résultat est « Incertain ». Il se précise à mesure que les notes et les choix arrivent.');
-      }
-      body.appendChild(expl);
-      body.appendChild(el('p', 'mt-3 text-xs text-slate-500', 'Ces chiffres se mettent à jour automatiquement chaque minute.'));
     }
 
     function renderStats() {
@@ -1106,9 +1066,7 @@
       });
 
       var c = state.coverage || {};
-      $('statsNote').textContent = 'Demande calculée à partir des choix enregistrés uniquement' +
-        (num(c.choicesSaved) !== null ? ' (' + plural(c.choicesSaved, 'étudiant', 'étudiants') + ')' : '') +
-        '. Les simulations non enregistrées ne comptent pas.';
+      $('statsNote').textContent = 'Choix enregistrés' + (num(c.choicesSaved) !== null ? ' : ' + plural(c.choicesSaved, 'étudiant', 'étudiants') : '') + '.';
 
       var r = state.rules || {};
       var min = num(r.minSeats), max = num(r.maxSeats), N = num(r.classSize);
@@ -1117,9 +1075,8 @@
       if (min !== null && max !== null) {
         // [V2] Le plafond est la règle déterminante (le minimum ne joue que si N − (n − 1) × max < min)
         var others = (branches.length - 1) * max;
-        append(rules, el('strong', 'font-semibold text-slate-900', 'Règle des places : '),
-          'chaque filière accueille au plus ' + max + ' étudiants (plafond strict) et au moins ' + min + '.' +
-          (N !== null && N - others > min ? ' Avec ' + N + ' étudiants, chaque filière en reçoit donc au moins ' + (N - others) + " : c'est le plafond qui compte." : ''));
+        append(rules, el('strong', 'font-semibold text-slate-900', 'Places par filière : '),
+          'de ' + Math.max(min, N !== null ? N - others : min) + ' à ' + max + '.');
       }
     }
 
@@ -1327,7 +1284,7 @@
       var CY = 'Cybersécurité', RM = 'Réseaux Mobiles', SU = 'Systèmes Ubiquitaires', IA = 'Intelligence Artificielle';
       var four = q.get('specialites') === '4'; // [V2]
       var rules = { branches: four ? [CY, RM, SU, IA] : [CY, RM, SU], minSeats: 12, maxSeats: four ? 20 : 26, classSize: 70 };
-      var PROGRAM = { name: q.get('formation') || 'CI2 RST' }; // [V2]
+      var PROGRAM = { name: q.get('formation') || 'CI2' }; // [V2]
       var COVER = {
         SECURE:           { gradesSubmitted: 70, undecidedAbove: 0, tied: 0 },
         FALLBACK_SECURED: { gradesSubmitted: 70, undecidedAbove: 0, tied: 0 },

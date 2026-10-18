@@ -50,38 +50,29 @@
   <!-- Bandeau du mode démo (affiché seulement hors Apps Script) -->
   <div id="mockBanner" class="is-hidden border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900"></div>
 
-  <!-- En-tête -->
-  <header class="bg-[#0b1f3a] text-white">
+  <!-- En-tête : logo de l'école, titre, état de la synchronisation -->
+  <header class="bg-white border-b border-slate-200">
     <div class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-      <div class="flex items-center gap-3 min-w-0">
-        <div id="brandIcon" class="w-10 h-10 shrink-0 rounded-xl bg-white/10 ring-1 ring-white/15 flex items-center justify-center text-sky-200"></div>
-        <div class="min-w-0">
-          <div id="programLabel" class="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-200/80 truncate">Université Ibn Tofail</div>
-          <div class="text-base sm:text-lg font-semibold leading-tight truncate">Affectation des spécialités</div>
+      <div class="flex items-center gap-3 sm:gap-4 min-w-0">
+        <img src="data:image/png;base64,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" alt="ENSA Kénitra" class="h-9 sm:h-11 w-auto shrink-0">
+        <div class="min-w-0 border-l border-slate-200 pl-3 sm:pl-4">
+          <div class="text-base sm:text-lg font-semibold leading-tight text-slate-900 truncate">Affectation des spécialités</div>
+          <div id="programLabel" class="text-xs text-slate-500 truncate">Université Ibn Tofail</div>
         </div>
-        <span class="hidden md:inline-flex ml-1 items-center rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium text-sky-100 ring-1 ring-white/15">Espace coordination</span>
       </div>
       <div class="flex items-center gap-2 sm:gap-4">
-        <div class="hidden sm:flex items-center gap-2 text-xs text-slate-300">
+        <div class="hidden sm:flex items-center gap-2 text-xs text-slate-500">
           <span id="syncDot" class="inline-block w-2 h-2 rounded-full bg-slate-400"></span>
           <span id="syncText" class="tabular">Chargement…</span>
         </div>
-        <button type="button" id="refreshBtn" class="inline-flex items-center gap-1.5 rounded-lg bg-white/10 hover:bg-white/20 px-3 py-1.5 text-sm font-medium ring-1 ring-white/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Actualiser les données"></button>
-        <div id="userChip" class="is-hidden hidden lg:flex items-center gap-2 pl-3 border-l border-white/15">
-          <span id="userInitials" class="w-8 h-8 rounded-full bg-sky-400/25 ring-1 ring-sky-300/40 flex items-center justify-center text-xs font-semibold text-sky-100"></span>
-          <span id="userEmail" class="text-sm text-slate-200 max-w-[230px] truncate"></span>
+        <button type="button" id="refreshBtn" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Actualiser les données"></button>
+        <div id="userChip" class="is-hidden hidden lg:flex items-center gap-2 pl-4 border-l border-slate-200">
+          <span id="userInitials" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-semibold text-slate-600"></span>
+          <span id="userEmail" class="text-sm text-slate-600 max-w-[230px] truncate"></span>
         </div>
       </div>
     </div>
   </header>
-
-  <!-- Étapes de la campagne -->
-  <div id="phaseBar" class="is-hidden bg-white border-b border-slate-200">
-    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center gap-3">
-      <span class="hidden sm:inline text-[11px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">Campagne</span>
-      <ol id="phaseList" class="relative flex items-center gap-1.5 overflow-x-auto no-scrollbar"></ol>
-    </div>
-  </div>
 
   <!-- Navigation mobile -->
   <nav id="mobileNav" class="is-hidden lg:hidden sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200" aria-label="Sections">
@@ -141,13 +132,12 @@
       { id: 'allocation', label: 'Affectation & égalités', icon: 'scale' },
       { id: 'whatif', label: 'Simulation des règles', icon: 'beaker' },
       { id: 'settings', label: 'Calendrier & accès', icon: 'calendar' },
-      { id: 'program', label: 'Formation & spécialités', icon: 'cap' },
+      { id: 'program', label: 'Paramètres', icon: 'cog' },
       { id: 'results', label: 'Résultats officiels', icon: 'badge' },
       { id: 'reminders', label: 'Rappels par e-mail', icon: 'mail' },
       { id: 'health', label: 'Qualité des données', icon: 'shield' },
       { id: 'journal', label: 'Journal des actions', icon: 'journal' }
     ];
-    var PHASES = ['Préparation', 'Choix ouverts', 'Choix clos', 'Affectation figée', 'Résultats publiés'];
     var BRANCH_TONES = [
       { dot: 'bg-violet-500', soft: 'bg-violet-50', text: 'text-violet-800', border: 'border-violet-200', bar: 'bg-violet-500', hex: '#8b5cf6' },
       { dot: 'bg-sky-500', soft: 'bg-sky-50', text: 'text-sky-800', border: 'border-sky-200', bar: 'bg-sky-500', hex: '#0ea5e9' },
@@ -177,7 +167,7 @@
       REGLES: 'Règles de répartition', ANNONCE: 'Annonce', DEPARTAGE: 'Départage', DEPARTAGE_SUPPRIME: 'Départage supprimé',
       CHOIX_ADMIN: 'Choix saisis', AFFECTATION_IMPOSEE: 'Affectation imposée', FIGER: 'Affectation figée',
       PUBLIER: 'Publication', DEPUBLIER: 'Dépublication', RAPPELS: 'Rappels envoyés', REGLAGES_NETTOYES: 'Réglages nettoyés',
-      FORMATION: 'Formation et spécialités'
+      FORMATION: 'Formation et spécialités', ADMINISTRATEURS: 'Administrateurs'
     };
     // [V2] Autant de rangs que de spécialités (i à partir de 0)
     function rankShort(i) { return i === 0 ? '1er' : (i + 1) + 'e'; }
@@ -195,7 +185,7 @@
       FROZEN_SHEETS: 'Affectations figées',
       PUBLISHED_SHEET: 'Résultats publiés (absente = non publiés)',
       PUBLIC_URL: 'Lien des rappels (absente = lien de l’application)',
-      PROGRAM_NAME: 'Nom de la formation (absente = CI2 RST)',
+      PROGRAM_NAME: 'Nom de la formation (absente = CI2)',
       SPECIALTIES: 'Liste des spécialités (absente = les 3 spécialités RST)',
       CLASS_SIZE: 'Effectif attendu (absente = 70)'
     };
@@ -234,7 +224,9 @@
       table: 'M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z',
       copy: 'M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z',
       trash: 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16',
-      sparkles: 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z'
+      sparkles: 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z',
+      plus: 'M12 4v16m8-8H4',
+      cog: ['M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z', 'M15 12a3 3 0 11-6 0 3 3 0 016 0z']
     };
 
     // =====================================================================
@@ -448,8 +440,7 @@
     function sectionHeader(title, desc, actions) {
       return h('div', { class: 'mb-6 flex flex-wrap items-end justify-between gap-4' }, [
         h('div', { class: 'min-w-0' }, [
-          h('h1', { class: 'text-2xl font-semibold tracking-tight text-slate-900', text: title }),
-          desc ? h('p', { class: 'mt-1 text-sm text-slate-500 max-w-3xl', text: desc }) : null
+          h('h1', { class: 'text-2xl font-semibold tracking-tight text-slate-900', text: title })
         ]),
         actions ? h('div', { class: 'flex flex-wrap gap-2' }, actions) : null
       ]);
@@ -540,7 +531,7 @@
       q: '', filter: 'all', status: 'all',
       tieEdit: null,
       whatif: { min: null, max: null, result: null, loading: false, error: null },
-      deadline: null, announcement: null, program: null, freezeAck: { notLocked: false, pending: false, ties: false }, publishSheet: null,
+      deadline: null, announcement: null, program: null, newAdmin: '', freezeAck: { notLocked: false, pending: false, ties: false }, publishSheet: null,
       reminders: { data: null, loading: false, error: null, subject: null, body: null, results: null },
       journal: { data: null, loading: false, error: null, offset: 0, limit: 50 },
       testEmail: { value: '', result: null, loading: false, error: null },
@@ -699,15 +690,6 @@
       if (!ov && bgInFlight) { show($('bootLoading'), true); show($('bootError'), false); }
     }
 
-    function phaseIndex() {
-      var c = ov.config;
-      if (c.results.published) return 4;
-      if (c.results.frozen.length && c.locked) return 3;
-      if (c.locked && c.studentPageOpen) return 2;
-      if (c.studentPageOpen) return 1;
-      return 0;
-    }
-
     function navBadge(id) {
       if (!ov) return null;
       if (id === 'students' && ov.participation.pending) return { n: ov.participation.pending, cls: 'bg-amber-100 text-amber-800', title: 'Étudiants sans choix' };
@@ -718,7 +700,6 @@
 
     function renderChrome() {
       if (!ov) return;
-      show($('phaseBar'), true);
       show($('sideNav'), true);
       show($('mobileNav'), true);
       show($('userChip'), true);
@@ -728,20 +709,6 @@
       var pname = ov.config.program && ov.config.program.name;
       $('programLabel').textContent = 'Université Ibn Tofail' + (pname ? ' · ' + pname : '');
       $('userInitials').textContent = email ? email.split('@')[0].split(/[._-]/).map(function (p) { return p.charAt(0).toUpperCase(); }).slice(0, 2).join('') : '?';
-
-      var phase = phaseIndex();
-      var list = clear($('phaseList'));
-      PHASES.forEach(function (label, i) {
-        var done = i < phase, cur = i === phase;
-        list.appendChild(h('li', { class: 'flex items-center gap-1.5 shrink-0' }, [
-          i ? h('span', { class: 'w-4 sm:w-6 h-px ' + (done || cur ? 'bg-blue-300' : 'bg-slate-200') }) : null,
-          h('span', { class: 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ' +
-            (cur ? 'bg-blue-700 text-white shadow-sm' : done ? 'bg-blue-50 text-blue-800' : 'bg-slate-100 text-slate-500'), 'aria-current': cur ? 'step' : null }, [
-            done ? icon('check', 'w-3.5 h-3.5') : h('span', { class: 'tabular text-[11px] font-semibold opacity-80', text: String(i + 1) }),
-            label
-          ])
-        ]));
-      });
 
       var side = clear($('sideNavList'));
       var mob = clear($('mobileNavList'));
@@ -764,20 +731,16 @@
         }, [t.label, b ? h('span', { class: 'rounded-full px-1.5 text-[11px] font-semibold tabular ' + (active ? 'bg-white/25 text-white' : b.cls), text: String(b.n) }) : null]));
       });
 
-      // Sur mobile, les bandeaux défilants montrent l'étape et l'onglet en cours
+      // Sur mobile, le bandeau défilant montre l'onglet en cours
       setTimeout(function () {
-        [[list, '[aria-current="step"]'], [mob, '[aria-current="page"]']].forEach(function (x) {
-          var cur = x[0].querySelector(x[1]);
-          if (cur && x[0].scrollWidth > x[0].clientWidth) x[0].scrollLeft = Math.max(0, cur.offsetLeft - 24);
-        });
+        var cur = mob.querySelector('[aria-current="page"]');
+        if (cur && mob.scrollWidth > mob.clientWidth) mob.scrollLeft = Math.max(0, cur.offsetLeft - 24);
       }, 0);
 
       var links = clear($('sideLinks'));
       add(links, [
-        h('div', { class: 'text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2', text: 'Raccourcis' }),
         ov.config.spreadsheetUrl ? h('div', { class: 'py-1' }, link('Ouvrir le classeur', ov.config.spreadsheetUrl)) : null,
-        ov.config.studentUrl ? h('div', { class: 'py-1' }, link('Lien de la page étudiante', ov.config.studentUrl)) : null,
-        h('p', { class: 'mt-3 text-xs text-slate-500 leading-relaxed', text: 'Toute action est inscrite au journal avec votre adresse.' }),
+        ov.config.studentUrl ? h('div', { class: 'py-1' }, link('Page étudiante', ov.config.studentUrl)) : null,
         ov.config.version ? h('p', { class: 'mt-2 text-[11px] text-slate-400', text: 'Version du code : ' + ov.config.version }) : null
       ]);
       syncChrome();
@@ -1003,8 +966,7 @@
             h('div', { class: 'text-sm font-medium text-slate-500', text: o.label }),
             o.valueNode || h('div', { class: 'mt-1.5 text-2xl font-semibold tracking-tight tabular ' + (o.valueCls || 'text-slate-900'), text: o.value }),
             o.sub ? h('div', { class: 'mt-0.5 text-sm ' + (o.subCls || 'text-slate-500'), text: o.sub }) : null
-          ]),
-          h('span', { class: 'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ' + o.iconCls }, icon(o.icon, 'w-5 h-5'))
+          ])
         ]),
         o.foot ? h('div', { class: 'mt-4' }, o.foot) : null
       ]);
@@ -1012,7 +974,7 @@
 
     function viewOverview() {
       var c = ov.config, p = ov.participation, a = ov.allocation;
-      var out = [sectionHeader("Vue d'ensemble", "Situation de la campagne en temps réel : participation, affectation provisoire et points à traiter.", [
+      var out = [sectionHeader("Vue d'ensemble", null, [
         btn("Exporter l'affectation", { icon: 'download', onClick: function () { exportCsv('allocation'); } })
       ])];
 
@@ -1104,7 +1066,7 @@
         var pb = a.perBranch[b] || { count: 0, byRank: {}, bySource: {} };
         var t = tone(b);
         var extra = ['TIEBREAK', 'MANUAL', 'AUTO'].filter(function (k) { return pb.bySource && pb.bySource[k]; });
-        return h('div', { class: 'rounded-xl border border-slate-200 p-4 min-w-0 bg-gradient-to-b from-white to-slate-50/60' }, [
+        return h('div', { class: 'rounded-xl border border-slate-200 p-4 min-w-0' }, [
           h('div', { class: 'flex items-center justify-between gap-2' }, [
             h('div', { class: 'flex items-center gap-2 min-w-0' }, [h('span', { class: 'w-2.5 h-2.5 rounded-full shrink-0 ' + t.dot }), h('span', { class: 'font-semibold text-slate-900 truncate', text: b })]),
             pb.full ? badge('Complète', 'bg-red-50 text-red-700 ring-red-200') : badge(plural(pb.seatsLeft, 'place libre', 'places libres'), 'bg-white text-slate-600 ring-slate-200')
@@ -1114,21 +1076,13 @@
             h('span', { class: 'text-sm text-slate-500', text: '/ ' + r.max + ' places' })
           ]),
           h('div', { class: 'mt-2.5' }, progressBar(pb.count, r.max, t.bar, [{ at: r.floor, cls: 'bg-slate-700/70', title: 'Plancher garanti : ' + r.floor }])),
-          h('div', { class: 'mt-1 flex justify-between text-[11px] text-slate-400 tabular' }, [h('span', { text: '0' }), h('span', { text: 'plancher ' + r.floor }), h('span', { text: 'plafond ' + r.max })]),
-          h('dl', { class: 'mt-4 grid grid-cols-2 gap-3' }, [
-            h('div', null, [h('dt', { class: 'text-xs text-slate-500', text: 'Dernière note admise' }), h('dd', { class: 'text-sm font-semibold tabular text-slate-900', text: fmtGrade(pb.cutoffGrade) })]),
-            h('div', null, [h('dt', { class: 'text-xs text-slate-500', text: 'Rang du choix obtenu' }), h('dd', { class: 'text-sm font-medium tabular text-slate-800', text: rankList().map(function (k) { return rankShort(k - 1) + ' ' + (pb.byRank['r' + k] || 0); }).join(' · ') })])
-          ]),
+          h('div', { class: 'mt-3 text-xs text-slate-500' }, ['Dernière note admise : ', h('span', { class: 'font-semibold tabular text-slate-900', text: fmtGrade(pb.cutoffGrade) })]),
           extra.length ? h('div', { class: 'mt-3 flex flex-wrap gap-1' }, extra.map(function (k) { return badge(SOURCE_UI[k].label + ' : ' + pb.bySource[k], SOURCE_UI[k].cls, SOURCE_UI[k].title); })) : null
         ]);
       });
-      var note = r.floor > r.min
-        ? 'Avec ' + N + ' étudiants et un plafond de ' + r.max + ', chaque filière reçoit au moins ' + r.floor + ' étudiants : le minimum de ' + r.min + " n'est pas contraignant. C'est le plafond qui décide."
-        : 'Le minimum de ' + r.min + ' par filière peut ici être contraignant : des étudiants peuvent être dirigés vers une filière qui manque de monde.';
-      return card('Affectation provisoire', 'Recalculée à chaque actualisation, selon les notes, les choix enregistrés, les départages et les affectations imposées.', [
-        h('div', { class: 'grid grid-cols-1 md:grid-cols-3 gap-3' }, cols),
-        h('div', { class: 'mt-5' }, [h('div', { class: 'text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2', text: 'Satisfaction des étudiants' }), satisfactionBar(a.satisfaction)]),
-        h('div', { class: 'mt-4' }, callout('neutral', h('p', null, [h('strong', { class: 'font-semibold text-slate-800', text: 'Plafond ' + r.max + ' par filière. ' }), note])))
+      return card('Affectation provisoire', 'De ' + r.floor + ' à ' + r.max + ' places par filière.', [
+        h('div', { class: 'grid grid-cols-1 md:grid-cols-' + Math.min(4, Math.max(2, cols.length)) + ' gap-3' }, cols),
+        h('div', { class: 'mt-5' }, [h('div', { class: 'text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2', text: 'Choix obtenus' }), satisfactionBar(a.satisfaction)])
       ], { icon: 'scale', actions: [btn('Simuler d’autres règles', { size: 'sm', variant: 'ghost', icon: 'beaker', onClick: function () { go('whatif'); } })] });
     }
 
@@ -1141,12 +1095,12 @@
       var body = items.length ? h('ul', { class: 'divide-y divide-slate-100 -mx-1' }, items.map(function (it) {
         var t = tones[it.kind];
         return h('li', null, h('button', {
-          type: 'button', class: 'w-full flex items-start gap-3 rounded-lg px-1 py-3 text-left hover:bg-slate-50 transition-colors',
+          type: 'button', class: 'w-full flex items-start gap-3 rounded-lg px-1 py-2.5 text-left hover:bg-slate-50 transition-colors',
           onclick: function () { if (it.filter) ui.filter = it.filter; go(it.tab); }
         }, [
-          h('span', { class: 'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ' + t[0] }, icon(t[1], 'w-[18px] h-[18px]')),
-          h('span', { class: 'min-w-0 flex-1' }, [h('span', { class: 'block text-sm font-semibold text-slate-900', text: it.title }), h('span', { class: 'block text-sm text-slate-500', text: it.text })]),
-          icon('chevronRight', 'w-4 h-4 mt-2 text-slate-300 shrink-0')
+          icon(t[1], 'w-[18px] h-[18px] mt-0.5 shrink-0 ' + t[0].split(' ')[1]),
+          h('span', { class: 'min-w-0 flex-1 text-sm font-medium text-slate-800', text: it.title, title: it.text }),
+          icon('chevronRight', 'w-4 h-4 mt-0.5 text-slate-300 shrink-0')
         ]));
       })) : emptyState('Rien à signaler : tout est en ordre.');
       return card("Points d'attention", null, body, { icon: 'warning' });
@@ -1161,10 +1115,10 @@
         h('div', { class: 'mt-4 grid grid-cols-3 gap-4 border-t border-slate-100 pt-4' }, [
           stat('Premier enregistrement', p.firstSavedAt ? fmtDateTime(p.firstSavedAt) : '—'),
           stat('Dernier enregistrement', p.lastSavedAt ? fmtDateTime(p.lastSavedAt) : '—'),
-          stat('Ont changé d’avis', String(p.changedMind), 'au moins deux classements')
+          stat('Ont changé d’avis', String(p.changedMind))
         ])
       ]);
-      return card('Participation dans le temps', 'Nombre cumulé d’étudiants ayant enregistré un premier classement (' + (tl.unit === 'hour' ? 'par heure' : 'par jour') + ').', body, { icon: 'clock' });
+      return card('Participation', null, body, { icon: 'clock' });
     }
 
     function timelineChart(points, classSize, unit) {
@@ -1212,25 +1166,8 @@
           td(h('div', { class: 'flex items-center gap-2' }, [h('span', { class: 'font-semibold tabular text-slate-900', text: String(s.c1 || 0) }), over > 0 ? badge('+' + over + (branches().length > 3 ? '' : ' au-delà du plafond'), 'bg-red-50 text-red-700 ring-red-200', over + ' au-delà du plafond de ' + r.max) : null]))
         ].concat(rankList().slice(1).map(function (k) { return td(String(s['c' + k] || 0), 'tabular text-slate-600'); })));
       });
-      // [V2] Au-delà de 3 spécialités, seuls les classements effectivement choisis sont listés
-      var shown = branches().length > 3 ? d.rankings.filter(function (x) { return x.count > 0; }) : d.rankings;
-      var maxCount = Math.max.apply(null, d.rankings.map(function (x) { return x.count; }).concat([1]));
-      var ranks = shown.length ? h('ul', { class: 'space-y-2' }, shown.map(function (x) {
-        var bar = h('div', { class: 'h-1.5 rounded-full bg-slate-100 overflow-hidden' }, (function () {
-          var f = h('div', { class: 'h-full rounded-full ' + tone(x.order[0]).bar }); f.style.width = (x.count / maxCount * 100) + '%'; return f;
-        })());
-        return h('li', { class: 'grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1' }, [
-          h('div', { class: 'min-w-0 flex flex-wrap items-center gap-1 text-xs text-slate-700' }, x.order.map(function (b, i) {
-            return [i ? h('span', { class: 'text-slate-300', text: '›' }) : null, h('span', { class: 'inline-flex items-center gap-1' }, [h('span', { class: 'w-1.5 h-1.5 rounded-full ' + tone(b).dot }), b])];
-          })),
-          h('span', { class: 'text-sm font-semibold tabular text-slate-900', text: String(x.count) }),
-          h('div', { class: 'col-span-2' }, bar)
-        ]);
-      })) : h('p', { class: 'text-sm text-slate-500', text: 'Aucun classement enregistré pour l’instant.' });
-      return card('Demande exprimée', 'Choix enregistrés uniquement. Le plafond de ' + r.max + ' places limite chaque filière.', [
-        tableWrap(['Filière'].concat(rankList().map(function (k) { return rankShort(k - 1) + ' choix'; })), rows),
-        h('div', { class: 'mt-5 text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3', text: 'Classements complets' }),
-        ranks
+      return card('Demande exprimée', null, [
+        tableWrap(['Filière'].concat(rankList().map(function (k) { return rankShort(k - 1) + ' choix'; })), rows)
       ], { icon: 'table', actions: [btn('Exporter', { size: 'sm', variant: 'ghost', icon: 'download', onClick: function () { exportCsv('demand'); } })] });
     }
 
@@ -1558,7 +1495,7 @@
       var decisive = ties.filter(function (t) { return t.decisive; }).sort(function (a, b) { return (a.resolved - b.resolved) || (b.grade - a.grade); });
       var other = ties.filter(function (t) { return !t.decisive; });
       var body = [];
-      body.push(h('p', { class: 'text-sm text-slate-600 mb-4 leading-relaxed', text: "Une égalité est décisive lorsque l'ordre de passage des étudiants concernés change la filière d'au moins l'un d'eux. Sans départage, l'ordre alphabétique s'applique." }));
+      body.push(h('p', { class: 'text-sm text-slate-600 mb-4 leading-relaxed', text: "Sans départage, l'ordre alphabétique s'applique." }));
       if (decisive.length) body.push(h('div', { class: 'grid grid-cols-1 lg:grid-cols-2 gap-4' }, decisive.map(tieGroupCard)));
       else body.push(callout('success', 'Aucune égalité ne change actuellement l’affectation.'));
       if (other.length) {
@@ -1675,7 +1612,7 @@
           ]);
         }));
       }
-      return card('Zone de bascule', 'Pour chaque filière pleine : les étudiants qui la quitteraient ou y entreraient au moindre changement.', body, { icon: 'warning' });
+      return card('Zone de bascule', null, body, { icon: 'warning' });
     }
 
     function forcedCard() {
@@ -1693,7 +1630,7 @@
           h('div', { class: 'flex items-center gap-2' }, [branchPill(r.forcedBranch), btn('Retirer', { size: 'sm', variant: 'subtle', disabled: pub, onClick: function () { dialogUnforce(r.name); } })])
         ]);
       })));
-      return card('Affectations imposées', 'Décisions individuelles placées avant le calcul (raison obligatoire).', body, {
+      return card('Affectations imposées', null, body, {
         icon: 'flag', actions: [btn('Imposer une filière…', { size: 'sm', icon: 'flag', disabled: pub, title: pub ? "Dépubliez d'abord les résultats." : null, onClick: dialogPickStudent })]
       });
     }
@@ -1767,8 +1704,7 @@
           h('div', { class: 'rounded-lg bg-slate-50 border border-slate-200 p-4' }, [
             h('div', { class: 'text-xs font-medium text-slate-500', text: 'Plancher garanti par filière' }),
             h('div', { class: 'mt-0.5 text-2xl font-semibold tabular text-slate-900', text: floor === null ? '—' : String(floor) }),
-            h('div', { class: 'text-xs text-slate-500', text: 'max(minimum, ' + N + ' − ' + O + ' × plafond)' }),
-            valid && N - O * mx >= mn ? h('p', { class: 'mt-2 text-xs text-slate-600', text: 'Le minimum n’est pas contraignant avec ce plafond : il ne jouerait qu’avec un plafond d’environ ' + Math.ceil((N - mn) / O + 1) + ' ou plus.' }) : null
+            h('div', { class: 'text-xs text-slate-500', text: 'max(minimum, ' + N + ' − ' + O + ' × plafond)' })
           ]),
           h('ul', { class: 'mt-3 space-y-1.5' }, checks.map(function (x) {
             return h('li', { class: 'flex items-center gap-2 text-sm ' + (x.ok ? 'text-emerald-700' : 'text-red-700') }, [icon(x.ok ? 'checkCircle' : 'warning', 'w-4 h-4 shrink-0'), x.text]);
@@ -1791,7 +1727,7 @@
         return h('button', { type: 'button', class: 'rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50', text: (p[2] ? p[2] + ' (' : 'Plafond ') + (p[2] ? p[0] + ' / ' + p[1] + ')' : p[1]),
           onclick: function () { w.min = p[0]; w.max = p[1]; renderTab(); } });
       }));
-      var form = card('Règles à tester', 'Rien n’est enregistré tant que vous n’appliquez pas.', [
+      var form = card('Règles à tester', null, [
         h('div', { class: 'space-y-4' }, [
           field('Plafond par filière (maximum)', maxIn, 'C’est la règle déterminante : aucune filière ne peut dépasser ce nombre.', 'wiMax'),
           field('Minimum par filière', minIn, null, 'wiMin'),
@@ -1989,7 +1925,7 @@
         } }));
       }
       body.push(h('div', { class: 'mt-4 flex flex-wrap gap-2' }, actions));
-      return card('Clôture manuelle', 'Indépendante de la date limite : utile pour fermer plus tôt ou en cas d’incident.', body, { icon: 'lock' });
+      return card('Clôture manuelle', null, body, { icon: 'lock' });
     }
 
     function policyCard() {
@@ -2127,6 +2063,39 @@
       return out;
     }
 
+    // [V2] Administrateurs : ajout et retrait (jamais sa propre adresse)
+    function adminsCard() {
+      var list = ov.config.admins || [];
+      var me = (ov.me && ov.me.email) || '';
+      var inp = h('input', { type: 'email', value: ui.newAdmin, placeholder: 'prenom.nom@uit.ac.ma', class: inputCls(), id: 'newAdmin', autocomplete: 'off', 'aria-label': 'Adresse du nouvel administrateur' });
+      inp.addEventListener('input', function () { ui.newAdmin = inp.value; });
+      function addAdmin() {
+        var v = ui.newAdmin.trim().toLowerCase();
+        if (!/^[a-z0-9._%+\-]+@uit\.ac\.ma$/.test(v)) { toast('Saisissez une adresse @uit.ac.ma.', 'error'); return; }
+        mutate('adminAddAdmin', [v], { label: 'Ajout…', onOk: function () { ui.newAdmin = ''; } });
+      }
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') addAdmin(); });
+      return card('Administrateurs', null, [
+        h('ul', { class: 'divide-y divide-slate-100' }, list.map(function (e) {
+          var self = e === me;
+          return h('li', { class: 'flex items-center gap-3 py-2.5' }, [
+            h('span', { class: 'flex-1 min-w-0 truncate text-sm text-slate-800', text: e }),
+            self ? badge('Vous', 'bg-slate-100 text-slate-600 ring-slate-200') : h('button', {
+              type: 'button', class: 'shrink-0 rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600', 'aria-label': 'Retirer ' + e, title: 'Retirer',
+              disabled: !!busy || null,
+              onclick: function () {
+                confirmAction({ title: 'Retirer cet administrateur ?', intro: e + ' n’aura plus accès à cet espace.', confirmLabel: 'Retirer', tone: 'danger', fn: 'adminRemoveAdmin', args: [e] });
+              }
+            }, icon('trash', 'w-4 h-4'))
+          ]);
+        })),
+        h('div', { class: 'mt-4 flex flex-col sm:flex-row gap-2' }, [
+          h('div', { class: 'flex-1 min-w-0' }, inp),
+          btn('Ajouter', { icon: 'plus', variant: 'primary', disabled: !!busy, onClick: addAdmin })
+        ])
+      ], { icon: 'users' });
+    }
+
     function viewProgram() {
       var c = ov.config, pg = c.program || {};
       var cur = branches();
@@ -2173,7 +2142,7 @@
           err
         ]);
       });
-      var addBtn = btn('Ajouter une spécialité', { icon: 'sparkles', size: 'sm', disabled: d.items.length >= maxB, title: d.items.length >= maxB ? maxB + ' spécialités au plus.' : null, onClick: function () {
+      var addBtn = btn('Ajouter une spécialité', { icon: 'plus', size: 'sm', disabled: d.items.length >= maxB, title: d.items.length >= maxB ? maxB + ' spécialités au plus.' : null, onClick: function () {
         d.items.push({ from: null, name: '' }); d.dirty = true; renderTab();
         setTimeout(function () { var x = $('progItem' + (d.items.length - 1)); if (x) x.focus(); }, 0);
       } });
@@ -2221,9 +2190,8 @@
               [plan.added.length ? plan.added.join(', ') + ' en dernier choix' : null, plan.removed.length ? plan.removed.join(', ') + ' retirée' + (plan.removed.length > 1 ? 's' : '') + ' (l’ordre des autres est conservé)' : null].filter(Boolean).join(' ; ') + '.' +
               (locked() ? ' Les choix sont clos : rouvrez-les si les étudiants doivent pouvoir revoir leur classement.' : ' Les étudiants pourront revoir leur classement.')));
           } else if (plan.renamed.length && saved) {
-            impact.appendChild(callout('info', 'Les classements enregistrés gardent leur ordre : seuls les noms changent (Preferences, Historique et Surcharges sont mis à jour).'));
+            impact.appendChild(callout('info', 'Seuls les noms changent : les classements gardent leur ordre.'));
           }
-          if (c.results.frozen.length) impact.appendChild(callout('info', 'Les affectations déjà figées restent telles quelles ; une affectation figée avec l’ancienne liste ne pourra plus être publiée.'));
         }
         var rowsOk = problems.rows.every(function (p) { return !p; });
         var countOk = plan.names.length >= minB && plan.names.length <= maxB;
@@ -2254,27 +2222,6 @@
         });
       }
 
-      var preview = h('div', { class: 'rounded-xl overflow-hidden border border-slate-200' }, [
-        h('div', { class: 'bg-[#0b1f3a] px-4 py-3 text-white' }, [
-          h('div', { id: 'progPreviewLabel', class: 'text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-200/80 truncate' }),
-          h('div', { class: 'text-sm font-semibold', text: 'Choix de la spécialité' })
-        ]),
-        h('div', { id: 'progPreviewList', class: 'bg-white px-4 py-3 space-y-1.5' })
-      ]);
-      function drawPreview() {
-        var l = $('progPreviewLabel'), list = $('progPreviewList');
-        if (!l || !list) return;
-        l.textContent = 'Université Ibn Tofail · ' + (cleanName(d.name) || '…');
-        clear(list);
-        (plan ? plan.names : cur).forEach(function (n, i) {
-          list.appendChild(h('div', { class: 'flex items-center gap-2 text-sm' }, [
-            h('span', { class: 'w-16 shrink-0 text-xs text-slate-500', text: rankShort(i) + ' choix' }),
-            h('span', { class: 'flex-1 min-w-0 truncate rounded-md border border-slate-200 px-2 py-1 text-slate-800', text: n || '—' })
-          ]));
-        });
-      }
-      var baseRefresh = refresh;
-      refresh = function () { baseRefresh(); drawPreview(); };
 
       var body = [
         pg.specialtiesInvalid ? h('div', { class: 'mb-4' }, callout('danger', 'La propriété SPECIALTIES est illisible : la liste par défaut s’affiche ci-dessous et les choix sont verrouillés. Vérifiez la liste puis enregistrez-la pour réparer.')) : null,
@@ -2283,14 +2230,14 @@
           h('button', { type: 'button', class: 'mt-1 text-xs font-semibold text-amber-900 underline', text: 'Abandonner ma saisie et reprendre la liste en vigueur', onclick: function () { ui.program = null; renderTab(); } })
         ]))) : null,
         h('div', { class: 'grid grid-cols-1 sm:grid-cols-3 gap-3' }, [
-          h('div', { class: 'sm:col-span-2' }, field('Nom de la formation', nameIn, 'En-tête des pages, titre de l’onglet et rappels par e-mail.', 'progName')),
-          field('Effectif attendu', sizeIn, 'Contrôle « Étudiants chargés ».', 'progSize')
+          h('div', { class: 'sm:col-span-2' }, field('Nom de la formation', nameIn, null, 'progName')),
+          field('Effectif attendu', sizeIn, null, 'progSize')
         ]),
         general,
         h('div', { class: 'mt-6 flex items-center justify-between gap-3' }, [
           h('div', null, [
-            h('div', { class: 'text-sm font-semibold text-slate-900', text: 'Spécialités proposées' }),
-            h('p', { class: 'text-xs text-slate-500', text: 'De ' + minB + ' à ' + maxB + '. Les étudiants les classent toutes, dans l’ordre de leur choix.' })
+            h('div', { class: 'text-sm font-semibold text-slate-900', text: 'Spécialités' }),
+            h('p', { class: 'text-xs text-slate-500', text: minB + ' à ' + maxB })
           ]),
           addBtn
         ]),
@@ -2304,23 +2251,13 @@
       ];
 
       var out = [
-        sectionHeader('Formation & spécialités', 'Nom affiché aux étudiants et liste des spécialités à classer. Utile pour adapter l’outil à une autre filière.'),
-        h('div', { class: 'grid grid-cols-1 xl:grid-cols-3 gap-6 items-start' }, [
-          h('div', { class: 'xl:col-span-2 min-w-0' }, card('Formation et spécialités', null, body, { icon: 'cap' })),
-          h('div', { class: 'space-y-6 min-w-0' }, [
-            card('Aperçu côté étudiant', null, preview, { icon: 'eye' }),
-            card('Ce qui se passe à l’enregistrement', null, h('ul', { class: 'space-y-2 text-sm text-slate-600 leading-relaxed' }, [
-              'Renommer garde la place de la spécialité dans chaque classement enregistré.',
-              'Une spécialité ajoutée est placée en dernier choix des classements déjà enregistrés.',
-              'Une spécialité retirée disparaît des classements ; l’ordre des autres est conservé.',
-              'Chaque classement modifié reçoit une ligne dans l’historique de l’étudiant ; l’action est inscrite au journal.',
-              'Pendant la publication des résultats, seul le nom de la formation est modifiable.'
-            ].map(function (t) { return h('li', { class: 'flex gap-2' }, [icon('check', 'w-4 h-4 mt-0.5 shrink-0 text-emerald-600'), h('span', { text: t })]); })), { icon: 'info' })
-          ])
+        sectionHeader('Paramètres'),
+        h('div', { class: 'grid grid-cols-1 xl:grid-cols-5 gap-6 items-start' }, [
+          h('div', { class: 'xl:col-span-3 min-w-0' }, card('Formation et spécialités', null, body, { icon: 'cap' })),
+          h('div', { class: 'xl:col-span-2 min-w-0' }, adminsCard())
         ])
       ];
-      setTimeout(refresh, 0); // une fois les nœuds dans la page (aperçu)
-      baseRefresh();
+      refresh();
       return out;
     }
 
@@ -2377,7 +2314,7 @@
       if (pub) {
         s3 = h('div', { class: 'space-y-3 text-sm' }, [
           callout('success', h('p', null, ['Publiés depuis le ' + fmtDateTime(pub.at) + ' : ', h('strong', { class: 'font-semibold', text: pub.sheet }), '.'])),
-          h('p', { class: 'text-slate-600', text: 'Chaque étudiant voit sa filière officielle. Tant que les résultats sont publiés, la réouverture des choix, les saisies et les affectations imposées sont bloquées.' }),
+          h('p', { class: 'text-slate-600', text: 'Chaque étudiant voit sa filière officielle.' }),
           btn('Dépublier', { variant: 'danger', size: 'sm', icon: 'x', disabled: !!busy, onClick: function () {
             confirmAction({ title: 'Dépublier les résultats ?', intro: 'Les étudiants ne verront plus leur résultat officiel. La feuille figée est conservée.', confirmLabel: 'Dépublier', tone: 'danger', fn: 'adminUnpublishResults', args: [] });
           } })
@@ -2427,10 +2364,10 @@
           step(3, 'Publier', !!pub, s3, c.locked && res.frozen.length > 0 && !pub)
         ]),
         h('div', { class: 'grid grid-cols-1 xl:grid-cols-2 gap-6' }, [
-          card('Affectations figées', 'Les 10 plus récentes. Les feuilles restent modifiables à la main dans le classeur (avec avertissement).',
+          card('Affectations figées', 'Les 10 plus récentes.',
             frozenRows.length ? tableWrap(['Feuille', 'Figée le', 'Par', 'État'], frozenRows) : emptyState('Aucune affectation figée.', 'archive'),
             { icon: 'archive', actions: c.spreadsheetUrl ? [link('Ouvrir le classeur', c.spreadsheetUrl)] : null }),
-          card('Exports CSV', 'Excel ou LibreOffice : UTF-8, séparateur « ; », virgule décimale (notes entre guillemets).', [h('div', { class: 'grid grid-cols-1 sm:grid-cols-2 gap-2' }, exportsList.map(function (e) {
+          card('Exports CSV', 'Séparateur « ; »', [h('div', { class: 'grid grid-cols-1 sm:grid-cols-2 gap-2' }, exportsList.map(function (e) {
             return h('button', { type: 'button', class: 'flex items-start gap-3 rounded-lg border border-slate-200 p-3 text-left hover:border-blue-300 hover:bg-blue-50/40 transition', onclick: function () { exportCsv(e[0]); } }, [
               h('span', { class: 'w-8 h-8 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center shrink-0' }, icon('download', 'w-4 h-4')),
               h('span', { class: 'min-w-0' }, [h('span', { class: 'block text-sm font-medium text-slate-900', text: e[1] }), h('span', { class: 'block text-xs text-slate-500', text: e[2] })])
@@ -2510,7 +2447,7 @@
         ]),
         blocked ? h('div', { class: 'mb-6' }, callout('warning', blocked)) : null,
         h('div', { class: 'grid grid-cols-1 xl:grid-cols-2 gap-6 items-start' }, [
-          card('Message', 'Texte brut, personnalisé pour chaque destinataire.', h('div', { class: 'space-y-3' }, [
+          card('Message', null, h('div', { class: 'space-y-3' }, [
             field('Objet', subj, null, 'remSubject'), field('Message', body, null, 'remBody'), chips,
             h('div', { class: 'flex flex-wrap gap-2 pt-1' }, [
               btn('Envoyer ' + plural(d.recipients.length, 'rappel', 'rappels') + '…', { variant: 'primary', icon: 'send', disabled: !!blocked || !!busy, onClick: function () {
@@ -2566,8 +2503,8 @@
         btn('Enregistrer la bonne liste', { icon: 'pencil', onClick: function () { go('program'); } })
       ]), { icon: 'warning' }));
       if (x.preferencesLayout) sections.push(card('Feuille Preferences à remettre en forme', null, h('div', { class: 'space-y-3' }, [
-        callout('danger', 'Preferences a ' + plural(x.preferencesLayout.found, 'colonne', 'colonnes') + ' de choix pour ' + x.preferencesLayout.expected + ' spécialités (propriété SPECIALTIES modifiée à la main ?) : les enregistrements des étudiants sont refusés. Réenregistrez la liste dans « Formation & spécialités » (ou lancez setupSheets depuis l’éditeur).'),
-        btn('Ouvrir Formation & spécialités', { icon: 'pencil', onClick: function () { go('program'); } })
+        callout('danger', 'Preferences a ' + plural(x.preferencesLayout.found, 'colonne', 'colonnes') + ' de choix pour ' + x.preferencesLayout.expected + ' spécialités (propriété SPECIALTIES modifiée à la main ?) : les enregistrements des étudiants sont refusés. Réenregistrez la liste dans « Paramètres » (ou lancez setupSheets depuis l’éditeur).'),
+        btn('Ouvrir les paramètres', { icon: 'pencil', onClick: function () { go('program'); } })
       ]), { icon: 'warning' }));
       listCard('Lignes écartées de Responses', 'Ces lignes sont ignorées : les étudiants concernés ne peuvent pas se connecter.', x.skipped, function (s) {
         return [h('span', { class: 'font-semibold tabular text-slate-900', text: 'Ligne ' + s.line + ' : ' }), s.why];
@@ -2607,7 +2544,7 @@
         else if (rr.verdict === 'AMBIGUOUS') verdict = callout('warning', h('p', null, ['Ambiguë : correspond à ' + rr.matches.join(', ') + '. La connexion est refusée. Renseignez l’adresse exacte en colonne C de Responses.']));
         else verdict = callout('danger', 'Aucune correspondance : la connexion est refusée. Vérifiez l’orthographe du nom ou renseignez l’adresse en colonne C de Responses.');
       }
-      var tester = card('Tester une adresse de connexion', 'Utilise exactement la règle appliquée à la connexion des étudiants.', h('div', { class: 'space-y-3' }, [
+      var tester = card('Tester une adresse de connexion', null, h('div', { class: 'space-y-3' }, [
         h('div', { class: 'flex flex-col sm:flex-row gap-2' }, [inp, btn(te.loading ? 'Test…' : 'Tester', { variant: 'primary', disabled: te.loading, onClick: runTest })]),
         verdict
       ]), { icon: 'search' });
@@ -2615,7 +2552,7 @@
       // Réglages enregistrés : propriétés du script présentes, et celles qui ne servent à rien
       var props = ov.config.properties || [];
       var staleN = props.filter(function (p) { return p.stale; }).length;
-      var settings = card('Réglages enregistrés', 'Propriétés du script. Une propriété absente vaut sa valeur par défaut : désactiver un réglage ici la supprime.', [
+      var settings = card('Réglages enregistrés', null, [
         props.length ? tableWrap(['Propriété', 'Valeur', 'État'], props.map(function (p) {
           return h('tr', { class: 'align-top' }, [
             td([h('div', { class: 'font-mono text-xs font-semibold text-slate-800', text: p.key }), h('div', { class: 'text-xs text-slate-500', text: PROPERTY_UI[p.key] || '' })]),
@@ -2628,7 +2565,6 @@
             confirmAction({ title: 'Retirer les propriétés inutiles ?', intro: 'Elles valent leur valeur par défaut (ou sont vides) : les retirer ne change rien au fonctionnement, mais évite qu’une ancienne valeur reste figée.', confirmLabel: 'Retirer', fn: 'adminCleanSettings', args: [] });
           } })
         ]) : null,
-        h('p', { class: 'mt-4 text-xs text-slate-500 leading-relaxed', text: 'Évitez de modifier ces propriétés à la main dans l’éditeur Apps Script (Paramètres du projet) : rechargez d’abord cette page de paramètres, car un formulaire ouvert avant un changement fait ici peut réécrire l’ancienne valeur.' })
       ], { icon: 'table' });
 
       var ec = x.emailColumn || {};
@@ -2762,7 +2698,7 @@
       var pollSec = Number(q.get('poll'));
       var DEFAULT_BR = ['Cybersécurité', 'Réseaux Mobiles', 'Systèmes Ubiquitaires'];
       var BR = DEFAULT_BR.slice(); // [V2] modifiable par adminSetProgram (démo)
-      var PROGRAM = { name: 'CI2 RST', classSize: 70 };
+      var PROGRAM = { name: 'CI2', classSize: 70 };
       var ADMIN = 'tomader.mazri@uit.ac.ma';
       var TZ = 'Africa/Casablanca';
       var URL_STUDENT = 'https://script.google.com/a/macros/uit.ac.ma/s/EXEMPLE/exec';
@@ -2859,6 +2795,7 @@
         announcement: sc === 'campagne' ? { text: 'Réunion d’information sur les trois spécialités jeudi à 10 h, amphithéâtre B. Enregistrez vos choix avant la date limite.', level: 'info', updatedAt: iso(t0 - 5 * HOUR) } : null,
         frozen: [], published: null, ties: {}, forced: {}, journal: [], quota: 94,
         skipped: [], orphans: [], dups: [], invalid: [], badEmails: [], ambiguous: [], calls: 0,
+        admins: [ADMIN, 'coordination.ci2@uit.ac.ma'], // [V2]
         // Propriétés figées à leur valeur par défaut par une version précédente de setupSheets
         staleProps: sc === 'preparation' ? ['ADMIN_EMAILS', 'STUDENT_PAGE_OPEN', 'MIN_SEATS', 'MAX_SEATS', 'UNDECIDED_POLICY'] : (sc === 'campagne' || sc === 'anomalies' ? ['ADMIN_EMAILS', 'MIN_SEATS', 'MAX_SEATS', 'UNDECIDED_POLICY'] : [])
       };
@@ -2867,7 +2804,7 @@
       function mockProps() {
         var out = [], st = db.staleProps;
         var push = function (k, v, stale) { out.push({ key: k, value: String(v), stale: !!stale }); };
-        if (st.indexOf('ADMIN_EMAILS') !== -1) push('ADMIN_EMAILS', ADMIN, true);
+        if (st.indexOf('ADMIN_EMAILS') !== -1 && db.admins.join(',') === ADMIN) push('ADMIN_EMAILS', ADMIN, true);
         if (db.pageOpen) push('STUDENT_PAGE_OPEN', 'true'); else if (st.indexOf('STUDENT_PAGE_OPEN') !== -1) push('STUDENT_PAGE_OPEN', 'false', true);
         if (db.deadline !== null) push('CHOICES_DEADLINE', msToLocal(db.deadline));
         if (db.manualLock) push('CHOICES_LOCKED', 'true');
@@ -2877,7 +2814,8 @@
         if (db.announcement) push('ANNOUNCEMENT', JSON.stringify(db.announcement));
         if (db.frozen.length) push('FROZEN_SHEETS', JSON.stringify(db.frozen.map(function (f) { return { sheet: f.sheet, at: f.at, by: f.by }; })).slice(0, 300));
         if (db.published) push('PUBLISHED_SHEET', JSON.stringify(db.published));
-        if (PROGRAM.name !== 'CI2 RST') push('PROGRAM_NAME', PROGRAM.name);
+        if (PROGRAM.name !== 'CI2') push('PROGRAM_NAME', PROGRAM.name);
+        if (db.admins.join(',') !== ADMIN) push('ADMIN_EMAILS', db.admins.join(', '));
         if (BR.join('|') !== DEFAULT_BR.join('|')) push('SPECIALTIES', JSON.stringify(BR));
         if (PROGRAM.classSize !== 70) push('CLASS_SIZE', PROGRAM.classSize);
         return out;
@@ -3112,7 +3050,7 @@
           config: {
             branches: BR.slice(), expectedClassSize: PROGRAM.classSize, spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/EXEMPLE/edit',
             program: {
-              name: PROGRAM.name, classSize: PROGRAM.classSize, specialtiesInvalid: false, defaultName: 'CI2 RST', defaultClassSize: 70, defaultBranches: DEFAULT_BR.slice(),
+              name: PROGRAM.name, classSize: PROGRAM.classSize, specialtiesInvalid: false, defaultName: 'CI2', defaultClassSize: 70, defaultBranches: DEFAULT_BR.slice(),
               minBranches: 2, maxBranches: 4, nameMaxLength: 40, branchMaxLength: 60, builtBy: 'Conçu et développé par les étudiants de la filière RST'
             },
             rules: { min: db.min, max: db.max, defaultMin: 12, defaultMax: 26, floor: Math.max(db.min, N - (BR.length - 1) * db.max) },
@@ -3121,7 +3059,7 @@
             announcement: db.announcement,
             results: { frozen: db.frozen.map(function (f) { return { sheet: f.sheet, at: f.at, by: f.by, exists: f.exists }; }), published: db.published },
             mail: { available: !mailReason, reason: mailReason, remainingQuota: db.quota }, studentUrl: URL_STUDENT,
-            properties: mockProps(), version: 'démo', deadlineRaw: null,
+            properties: mockProps(), admins: db.admins.slice(), version: 'démo', deadlineRaw: null,
             deployment: { url: URL_STUDENT, isDev: false, publicUrlIsDev: false, publicUrlOtherDeployment: false }
           },
           participation: {
@@ -3421,7 +3359,7 @@
         adminSetProgram: function (o) {
           o = o || {};
           var name = String(o.name || '').replace(/\s+/g, ' ').trim(), size = Number(o.classSize);
-          if (!name) throw new Error('Indiquez le nom de la formation (par exemple « CI2 RST »).');
+          if (!name) throw new Error('Indiquez le nom de la formation (par exemple « CI2 »).');
           if (!(size >= 1 && size <= 999 && Math.floor(size) === size)) throw new Error("L'effectif attendu doit être un nombre entier entre 1 et 999.");
           if (!Array.isArray(o.base) || o.base.join('\n') !== BR.join('\n')) throw new Error('La liste des spécialités a changé entre-temps (autre onglet ou autre administrateur) : rechargez la page.');
           var items = (o.branches || []).map(function (it) { return { from: it.from || null, name: String(it.name || '').replace(/\s+/g, ' ').trim() }; });
@@ -3474,6 +3412,21 @@
             (lockInfo().locked ? ' Les choix sont clos : rouvrez-les si les étudiants doivent pouvoir revoir leur classement.' : ' Les étudiants peuvent revoir leur classement.');
           return write('FORMATION', capitalize(parts.join(' ; ')) + (changedList ? ' — liste : ' + names.join(', ') : '') + (updated ? ' — ' + plural(updated, 'classement mis à jour', 'classements mis à jour') : ''), notice);
         },
+        adminAddAdmin: function (email) {
+          var e = String(email || '').toLowerCase().trim();
+          if (!/^[a-z0-9._%+\-]+@uit\.ac\.ma$/.test(e)) throw new Error('Adresse invalide : saisissez une adresse @uit.ac.ma.');
+          if (db.admins.indexOf(e) !== -1) return write('ADMINISTRATEURS', null, e + ' est déjà administrateur.');
+          if (students.some(function (x) { return x.email === e; })) throw new Error('Cette adresse correspond à un étudiant de la liste officielle : il ne pourrait plus choisir sa spécialité.');
+          db.admins.push(e); unstale(['ADMIN_EMAILS']);
+          return write('ADMINISTRATEURS', 'Administrateur ajouté : ' + e, e + ' est désormais administrateur.');
+        },
+        adminRemoveAdmin: function (email) {
+          var e = String(email || '').toLowerCase().trim();
+          if (db.admins.indexOf(e) === -1) throw new Error(e + " n'est pas administrateur.");
+          if (e === ADMIN) throw new Error('Vous ne pouvez pas retirer votre propre adresse : demandez-le à un autre administrateur.');
+          db.admins = db.admins.filter(function (x) { return x !== e; });
+          return write('ADMINISTRATEURS', 'Administrateur retiré : ' + e, e + " n'est plus administrateur.");
+        },
         adminCleanSettings: function () {
           var keys = db.staleProps.slice();
           if (!keys.length) return write('REGLAGES_NETTOYES', null, 'Aucune propriété inutile : rien à retirer.');
@@ -3525,7 +3478,6 @@
     // =====================================================================
     // Démarrage
     // =====================================================================
-    $('brandIcon').appendChild(icon('cap', 'w-6 h-6'));
     add($('refreshBtn'), [icon('refresh', 'w-4 h-4'), h('span', { class: 'hidden sm:inline', text: 'Actualiser' })]);
     $('refreshBtn').addEventListener('click', function () {
       load('manual');
