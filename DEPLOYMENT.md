@@ -79,7 +79,7 @@ If any line says `FAIL`, stop here and roll back (§9).
 
 | Who | Open the web-app link | Expected |
 |---|---|---|
-| Coordinator (tomader.mazri@uit.ac.ma) | | **Management interface** (“Espace coordination”) |
+| Coordinator (tomader.mazri@uit.ac.ma) | | **Management interface**: ENSA Kénitra logo, “Affectation des spécialités”, *Université Ibn Tofail · CI2* |
 | A student account | | Waiting message: *« Vous pourrez bientôt choisir vos options de spécialité sur cette page. »* (it turns into the dashboard by itself, within a minute, once you open the page) |
 | A non-uit.ac.ma Google account | | *« Connexion requise »* page |
 
@@ -106,11 +106,12 @@ The bar under the header shows the campaign phase: *Préparation → Choix ouver
 | 8. Freeze | **Résultats officiels → 2** | Creates a sheet `Affectation_YYYYMMDD_HHmm` with rank, name, grade, choices, branch, choice rank, origin and a French comment — exactly what the interface shows. It is protected with a warning (you can still edit it by hand if the jury decides so). |
 | 9. Publish | **Résultats officiels → 3** | Pick the frozen sheet, type `PUBLIER`. Each student sees their official branch (read from that sheet). While published, re-opening choices, editing choices and forcing a branch are blocked (*« Dépubliez d'abord les résultats. »*). **Dépublier** undoes it. |
 
-### Using the tool for another major (*Formation & spécialités*)
+### Settings, administrators and other majors (*Paramètres*)
 
-The tool was built for CI2 RST, but nothing in it is specific to RST any more. In **Formation & spécialités**, an administrator sets:
+The tool was built for CI2 RST, but nothing in it is specific to RST any more. In **Paramètres**, an administrator sets:
 
-- **Nom de la formation** (e.g. `CI2 GI`): shown in the header of both pages, the browser tab title, the “not on the list” message and the reminder e-mails.
+- **Administrateurs**: add an `@uit.ac.ma` address, or remove one with the bin icon. You cannot remove your own address (ask another administrator), and an address that belongs to a student of the official list is refused. Changes take effect immediately and are journaled.
+- **Nom de la formation** (default `CI2`): shown after *Université Ibn Tofail* in the header of both pages, in the browser tab title, the “not on the list” message and the reminder e-mails.
 - **Effectif attendu**: the class size the *Étudiants chargés* check compares with (70 for RST).
 - **Spécialités proposées**: **2 to 4** names. Rename one in place, remove it with the bin icon (*Rétablir* undoes it before saving), or add one. Students always rank every specialty, so the student page shows one drop-down per specialty.
 
@@ -138,7 +139,7 @@ The footer of every page shows **“Conçu et développé par les étudiants de 
 
 | Property | Present when | Absent means | Notes |
 |---|---|---|---|
-| `ADMIN_EMAILS` | you add it by hand (comma-separated) | the administrator listed in the code (`tomader.mazri@uit.ac.ma`) | Case-insensitive. |
+| `ADMIN_EMAILS` | the administrator list differs from the code's (comma-separated) | the administrator listed in the code (`tomader.mazri@uit.ac.ma`) | Managed in *Paramètres → Administrateurs*. Case-insensitive. |
 | `STUDENT_PAGE_OPEN` | the page is open (`true`) | page closed: students see the waiting message | Closing the page deletes it. Previews and saves are refused while closed. |
 | `CHOICES_DEADLINE` | a deadline is set (`YYYY-MM-DD HH:mm`) | no deadline | Script time zone. An unreadable value locks the choices. |
 | `CHOICES_LOCKED` | the manual lock is on (`true`) | no manual lock | Unlocking deletes it. |
@@ -148,8 +149,8 @@ The footer of every page shows **“Conçu et développé par les étudiants de 
 | `FROZEN_SHEETS` | at least one allocation was frozen | none | Sheets deleted by hand are dropped from the list at the next freeze. |
 | `PUBLISHED_SHEET` | results are published | not published | Unpublishing deletes it. |
 | `PUBLIC_URL` | you add it by hand (`https://…`) | the web-app URL | Link used in reminder e-mails. |
-| `PROGRAM_NAME` | the course name differs from `CI2 RST` | `CI2 RST` | Set in *Formation & spécialités*. |
-| `SPECIALTIES` | the list differs from the 3 RST specialties (JSON array, e.g. `["A","B","C","D"]`) | Cybersécurité, Réseaux Mobiles, Systèmes Ubiquitaires | Set in *Formation & spécialités*, which also converts saved rankings. An unreadable value (not 2–4 distinct names) **locks the choices** and is flagged. |
+| `PROGRAM_NAME` | the course name differs from `CI2` | `CI2` | Set in *Paramètres*. |
+| `SPECIALTIES` | the list differs from the 3 RST specialties (JSON array, e.g. `["A","B","C","D"]`) | Cybersécurité, Réseaux Mobiles, Systèmes Ubiquitaires | Set in *Paramètres*, which also converts saved rankings. An unreadable value (not 2–4 distinct names) **locks the choices** and is flagged. |
 | `CLASS_SIZE` | the expected class size differs from 70 | 70 | Used by the *Étudiants chargés* check only. |
 
 *Qualité des données → Réglages enregistrés* lists the properties currently set, flags any that are useless (default value, empty or unreadable) and removes them in one click.
@@ -222,9 +223,9 @@ Open `Admin.html` or `Dashboard.html` directly in a browser: without `google.scr
 | *« Dépubliez d'abord les résultats. »* | Expected while results are published. Unpublish first (*Résultats officiels → 3*). |
 | A CSV opens with every column after `Note` shifted one place right | The file was exported before the CSV fix: its grades were unquoted and the import also split on commas (`17,74` → `17` \| `74`). Deploy the current code (new version) and export again; splitting lost leading zeros (`16,09` → `16` \| `9`), so don't repair old files by hand. With old files, import with *Semicolon* as the only separator. |
 | A student is listed under *Lignes écartées* | Empty name, duplicate name or unreadable grade on that line of `Responses`. The student cannot log in until it is fixed. |
-| Students get *« Erreur de lecture de la liste officielle »* on saving, and *Qualité des données* says *Feuille Preferences à remettre en forme* | `SPECIALTIES` was edited by hand to a different number of specialties. Open *Formation & spécialités*, check the list and save it (or run `setupSheets`). Rankings saved with the old count have to be redone. |
-| Choices are closed with *« liste des spécialités illisible »* | `SPECIALTIES` was edited by hand and is not 2–4 distinct names. Save the right list in *Formation & spécialités*. |
-| The admin sees the students' waiting message | Their address is not in `ADMIN_EMAILS` (check spelling), or they are signed in with another Google account. |
+| Students get *« Erreur de lecture de la liste officielle »* on saving, and *Qualité des données* says *Feuille Preferences à remettre en forme* | `SPECIALTIES` was edited by hand to a different number of specialties. Open *Paramètres*, check the list and save it (or run `setupSheets`). Rankings saved with the old count have to be redone. |
+| Choices are closed with *« liste des spécialités illisible »* | `SPECIALTIES` was edited by hand and is not 2–4 distinct names. Save the right list in *Paramètres*. |
+| The admin sees the students' waiting message | Their address is not in the administrator list (*Paramètres → Administrateurs*), or they are signed in with another Google account. |
 
 ## 13. Assumptions and decisions
 
@@ -259,7 +260,7 @@ The code was exercised outside Google's runtime, in a Node.js emulation of the A
 - **Projection equivalence:** 30 random classes (36 to 70 students, many ties and undecided students) — the new `buildState_` returns exactly the same `projection`, `coverage`, `stats` and `rules` as the previous code: 18,630 fields compared, 0 differences.
 - **`selfTest`** passes, and its property (b) also holds on 25 other random seeds (1,600 students).
 - **201 assertions** on routing, access control (every `admin…` function refuses students and anonymous callers), each endpoint, the publication guards, CSV format (no unquoted decimal anywhere), e-mail matching, reminders and quota, journal paging, JSON-safety of every response, and absence of formulas in written cells.
-- **Formation & spécialités:** 93 server assertions (rename, add, remove, refusals, migration of `Preferences` / `Historique` / `Surcharges`, exports and frozen sheets with 4 columns, publication guards, hand-edited `SPECIALTIES`, cache invalidation, `selfTest` with 2 and 4 specialties, worst-case timing) and 52 browser assertions on both pages while the list changes under an open page.
+- **Paramètres:** 107 server assertions (administrators added and removed; specialties renamed, added and removed, refusals, migration of `Preferences` / `Historique` / `Surcharges`, exports and frozen sheets with 4 columns, publication guards, hand-edited `SPECIALTIES`, cache invalidation, `selfTest` with 2 and 4 specialties, worst-case timing) and 52 browser assertions on both pages while the list changes under an open page.
 - **Both pages driven in Chromium** against the emulated server (not only their demo data): every tab, dialogs, tie-break, simulation, close → freeze → publish, export download, then the student's official result.
 
 It has **not** been run on Google's servers. Steps 4 and 6 above are the first real-environment checks; do them before opening the page to students.
