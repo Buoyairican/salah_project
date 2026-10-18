@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gestion des affectations - RST</title>
+  <title>Gestion des affectations</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Google Fonts -->
@@ -56,7 +56,7 @@
       <div class="flex items-center gap-3 min-w-0">
         <div id="brandIcon" class="w-10 h-10 shrink-0 rounded-xl bg-white/10 ring-1 ring-white/15 flex items-center justify-center text-sky-200"></div>
         <div class="min-w-0">
-          <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-200/80 truncate">Université Ibn Tofail · CI2 RST</div>
+          <div id="programLabel" class="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-200/80 truncate">Université Ibn Tofail</div>
           <div class="text-base sm:text-lg font-semibold leading-tight truncate">Affectation des spécialités</div>
         </div>
         <span class="hidden md:inline-flex ml-1 items-center rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium text-sky-100 ring-1 ring-white/15">Espace coordination</span>
@@ -114,6 +114,14 @@
     </main>
   </div>
 
+  <!-- [V2] Signature de l'équipe de conception (fixe, indépendante de la formation) -->
+  <footer class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-2 flex justify-center">
+    <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm">
+      <svg class="w-3.5 h-3.5 text-blue-700" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+      Conçu et développé par les étudiants de la filière RST
+    </span>
+  </footer>
+
   <div id="drawerRoot"></div>
   <div id="dialogRoot"></div>
   <div id="toastRoot" class="fixed bottom-4 left-4 right-4 sm:left-auto sm:w-[420px] z-[70] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
@@ -133,6 +141,7 @@
       { id: 'allocation', label: 'Affectation & égalités', icon: 'scale' },
       { id: 'whatif', label: 'Simulation des règles', icon: 'beaker' },
       { id: 'settings', label: 'Calendrier & accès', icon: 'calendar' },
+      { id: 'program', label: 'Formation & spécialités', icon: 'cap' },
       { id: 'results', label: 'Résultats officiels', icon: 'badge' },
       { id: 'reminders', label: 'Rappels par e-mail', icon: 'mail' },
       { id: 'health', label: 'Qualité des données', icon: 'shield' },
@@ -142,7 +151,8 @@
     var BRANCH_TONES = [
       { dot: 'bg-violet-500', soft: 'bg-violet-50', text: 'text-violet-800', border: 'border-violet-200', bar: 'bg-violet-500', hex: '#8b5cf6' },
       { dot: 'bg-sky-500', soft: 'bg-sky-50', text: 'text-sky-800', border: 'border-sky-200', bar: 'bg-sky-500', hex: '#0ea5e9' },
-      { dot: 'bg-emerald-500', soft: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200', bar: 'bg-emerald-500', hex: '#10b981' }
+      { dot: 'bg-emerald-500', soft: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200', bar: 'bg-emerald-500', hex: '#10b981' },
+      { dot: 'bg-amber-500', soft: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200', bar: 'bg-amber-500', hex: '#f59e0b' }
     ];
     var SOURCE_UI = {
       ALGO: { label: 'Mérite', cls: 'bg-slate-100 text-slate-700 ring-slate-200', title: "Placé(e) par l'algorithme, selon la note et les choix" },
@@ -166,9 +176,12 @@
       DATE_LIMITE: 'Date limite', VERROU: 'Verrou', PAGE_ETUDIANTE: 'Page étudiante', POLITIQUE_SANS_CHOIX: 'Étudiants sans choix',
       REGLES: 'Règles de répartition', ANNONCE: 'Annonce', DEPARTAGE: 'Départage', DEPARTAGE_SUPPRIME: 'Départage supprimé',
       CHOIX_ADMIN: 'Choix saisis', AFFECTATION_IMPOSEE: 'Affectation imposée', FIGER: 'Affectation figée',
-      PUBLIER: 'Publication', DEPUBLIER: 'Dépublication', RAPPELS: 'Rappels envoyés', REGLAGES_NETTOYES: 'Réglages nettoyés'
+      PUBLIER: 'Publication', DEPUBLIER: 'Dépublication', RAPPELS: 'Rappels envoyés', REGLAGES_NETTOYES: 'Réglages nettoyés',
+      FORMATION: 'Formation et spécialités'
     };
-    var RANK_SHORT = ['1er', '2e', '3e'];
+    // [V2] Autant de rangs que de spécialités (i à partir de 0)
+    function rankShort(i) { return i === 0 ? '1er' : (i + 1) + 'e'; }
+    var RANK_COLORS = ['bg-emerald-500', 'bg-amber-400', 'bg-orange-500', 'bg-rose-500'];
     // Sens de chaque propriété du script (absente = valeur par défaut)
     var PROPERTY_UI = {
       ADMIN_EMAILS: 'Administrateurs (défaut : adresse inscrite dans le code)',
@@ -181,7 +194,10 @@
       ANNOUNCEMENT: 'Annonce (absente = aucune)',
       FROZEN_SHEETS: 'Affectations figées',
       PUBLISHED_SHEET: 'Résultats publiés (absente = non publiés)',
-      PUBLIC_URL: 'Lien des rappels (absente = lien de l’application)'
+      PUBLIC_URL: 'Lien des rappels (absente = lien de l’application)',
+      PROGRAM_NAME: 'Nom de la formation (absente = CI2 RST)',
+      SPECIALTIES: 'Liste des spécialités (absente = les 3 spécialités RST)',
+      CLASS_SIZE: 'Effectif attendu (absente = 70)'
     };
     var ICONS = {
       home: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
@@ -342,7 +358,10 @@
     // Composants visuels réutilisables
     // =====================================================================
     function branches() { return (ov && ov.config && Array.isArray(ov.config.branches)) ? ov.config.branches : []; }
-    function tone(branch) { var i = branches().indexOf(branch); return BRANCH_TONES[i >= 0 ? i % 3 : 0]; }
+    function tone(branch) { var i = branches().indexOf(branch); return BRANCH_TONES[i >= 0 ? i % BRANCH_TONES.length : 0]; }
+    // [V2] Rangs de choix : [1, 2, …, n]
+    function rankList() { return branches().map(function (b, i) { return i + 1; }); }
+    function rankSum(s) { return rankList().reduce(function (n, k) { return n + (s['r' + k] || 0); }, 0); }
     function branchPill(branch, extra) {
       if (!branch) return h('span', { class: 'inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 ring-1 ring-inset ring-slate-200', text: 'Non placé(e)' });
       var t = tone(branch);
@@ -521,7 +540,7 @@
       q: '', filter: 'all', status: 'all',
       tieEdit: null,
       whatif: { min: null, max: null, result: null, loading: false, error: null },
-      deadline: null, announcement: null, freezeAck: { notLocked: false, pending: false, ties: false }, publishSheet: null,
+      deadline: null, announcement: null, program: null, freezeAck: { notLocked: false, pending: false, ties: false }, publishSheet: null,
       reminders: { data: null, loading: false, error: null, subject: null, body: null, results: null },
       journal: { data: null, loading: false, error: null, offset: 0, limit: 50 },
       testEmail: { value: '', result: null, loading: false, error: null },
@@ -705,6 +724,9 @@
       show($('userChip'), true);
       var email = (ov.me && ov.me.email) || '';
       $('userEmail').textContent = email;
+      // [V2] Nom de la formation en en-tête
+      var pname = ov.config.program && ov.config.program.name;
+      $('programLabel').textContent = 'Université Ibn Tofail' + (pname ? ' · ' + pname : '');
       $('userInitials').textContent = email ? email.split('@')[0].split(/[._-]/).map(function (p) { return p.charAt(0).toUpperCase(); }).slice(0, 2).join('') : '?';
 
       var phase = phaseIndex();
@@ -784,7 +806,7 @@
       var view = clear($('view'));
       var fn = {
         overview: viewOverview, students: viewStudents, allocation: viewAllocation, whatif: viewWhatIf,
-        settings: viewSettings, results: viewResults, reminders: viewReminders, health: viewHealth, journal: viewJournal
+        settings: viewSettings, program: viewProgram, results: viewResults, reminders: viewReminders, health: viewHealth, journal: viewJournal
       }[tab] || viewOverview;
       try {
         view.appendChild(h('div', { class: 'anim-fade' }, fn()));
@@ -926,6 +948,7 @@
         (x.invalidPreferences || []).length + (x.ambiguousNames || []).length + (x.badEmails || []).length +
         (x.staleOverrides || []).length + (x.forcedOverflow || []).length + (x.staleTieBreaks || []).length +
         (x.staleProperties || []).length + (x.publishedSheetMissing ? 1 : 0) +
+        (x.specialtiesInvalid ? 1 : 0) + (x.preferencesLayout ? 1 : 0) + // [V2]
         (x.loaded !== x.expected ? 1 : 0);
     }
     function locked() { return !!ov.config.locked; }
@@ -938,6 +961,7 @@
     function lockLabel() {
       var c = ov.config;
       if (c.results.published) return 'Clos (résultats publiés)';
+      if (c.specialtiesInvalid) return 'Clos (liste des spécialités illisible)';
       if (c.deadlineInvalid) return 'Clos (date limite illisible)';
       if (c.manualLock) return 'Clos (verrou manuel)';
       if (c.deadlinePassed) return 'Clos (date limite dépassée)';
@@ -951,6 +975,8 @@
       if (c.results.published && !c.studentPageOpen) items.push({ kind: 'warning', title: 'Résultats publiés, page étudiante fermée', text: 'Les étudiants ne voient que le message d’attente : ouvrez la page pour qu’ils voient leur filière.', tab: 'settings' });
       if (ov.health.publishedSheetMissing) items.push({ kind: 'danger', title: 'Feuille publiée supprimée', text: 'Les étudiants ne voient plus de résultat et les choix restent clos : dépubliez, puis publiez une autre affectation figée.', tab: 'results' });
       if ((ov.health.staleProperties || []).length) items.push({ kind: 'warning', title: plural(ov.health.staleProperties.length, 'réglage figé inutilement', 'réglages figés inutilement'), text: 'Propriétés du script restées à leur valeur par défaut : retirez-les en un clic.', tab: 'health' });
+      if (c.specialtiesInvalid) items.push({ kind: 'danger', title: 'Liste des spécialités illisible', text: 'La propriété SPECIALTIES est invalide : la liste par défaut s’affiche et les choix sont verrouillés. Enregistrez la bonne liste.', tab: 'program' });
+      if (ov.health.preferencesLayout) items.push({ kind: 'danger', title: 'Feuille Preferences à remettre en forme', text: 'Elle n’a pas une colonne de choix par spécialité : les enregistrements sont refusés. Réenregistrez la liste des spécialités.', tab: 'program' });
       if (c.deadlineInvalid) items.push({ kind: 'danger', title: 'Date limite illisible', text: 'La propriété CHOICES_DEADLINE est invalide : les choix sont verrouillés. Redéfinissez la date limite.', tab: 'settings' });
       if (ov.allocation.unresolvedTies) items.push({ kind: 'danger', title: plural(ov.allocation.unresolvedTies, 'égalité décisive à départager', 'égalités décisives à départager'), text: "L'ordre alphabétique s'applique tant qu'aucun départage n'est enregistré.", tab: 'allocation' });
       if (ov.health.forcedOverflow && ov.health.forcedOverflow.length) items.push({ kind: 'danger', title: 'Affectations imposées au-delà du plafond', text: ov.health.forcedOverflow.join(', ') + ' : ignorées par le calcul.', tab: 'allocation' });
@@ -1034,10 +1060,10 @@
       });
 
       var s = a.satisfaction;
-      var withRank = s.r1 + s.r2 + s.r3;
+      var withRank = rankSum(s);
       var kSat = kpi({
         label: '1er choix obtenu', value: withRank ? pct(s.r1, withRank) + ' %' : '—', icon: 'sparkles', iconCls: 'bg-violet-50 text-violet-700',
-        sub: withRank ? 'Rang moyen ' + fmtDec(s.avgRank) + ' · 2e : ' + s.r2 + ' · 3e : ' + s.r3 : 'Aucun choix enregistré',
+        sub: withRank ? 'Rang moyen ' + fmtDec(s.avgRank) + rankList().slice(1).map(function (k) { return ' · ' + rankShort(k - 1) + ' : ' + (s['r' + k] || 0); }).join('') : 'Aucun choix enregistré',
         foot: satisfactionBar(s, true)
       });
 
@@ -1051,14 +1077,13 @@
     }
 
     function satisfactionBar(s, compact) {
-      var autoN = Math.max(0, s.placed - (s.r1 + s.r2 + s.r3));
-      var parts = [
-        { n: s.r1, cls: 'bg-emerald-500', label: '1er choix' },
-        { n: s.r2, cls: 'bg-amber-400', label: '2e choix' },
-        { n: s.r3, cls: 'bg-orange-500', label: '3e choix' },
+      var autoN = Math.max(0, s.placed - rankSum(s));
+      var parts = rankList().map(function (k) {
+        return { n: s['r' + k] || 0, cls: RANK_COLORS[(k - 1) % RANK_COLORS.length], label: rankShort(k - 1) + ' choix' };
+      }).concat([
         { n: autoN, cls: 'bg-slate-400', label: 'Sans choix (placés)' },
         { n: s.unplaced, cls: 'bg-red-300', label: 'Non placés' }
-      ];
+      ]);
       var total = s.placed + s.unplaced;
       var bar = h('div', { class: 'flex h-2.5 w-full overflow-hidden rounded-full bg-slate-100' });
       parts.forEach(function (x) {
@@ -1092,7 +1117,7 @@
           h('div', { class: 'mt-1 flex justify-between text-[11px] text-slate-400 tabular' }, [h('span', { text: '0' }), h('span', { text: 'plancher ' + r.floor }), h('span', { text: 'plafond ' + r.max })]),
           h('dl', { class: 'mt-4 grid grid-cols-2 gap-3' }, [
             h('div', null, [h('dt', { class: 'text-xs text-slate-500', text: 'Dernière note admise' }), h('dd', { class: 'text-sm font-semibold tabular text-slate-900', text: fmtGrade(pb.cutoffGrade) })]),
-            h('div', null, [h('dt', { class: 'text-xs text-slate-500', text: 'Rang du choix obtenu' }), h('dd', { class: 'text-sm font-medium tabular text-slate-800', text: '1er ' + (pb.byRank.r1 || 0) + ' · 2e ' + (pb.byRank.r2 || 0) + ' · 3e ' + (pb.byRank.r3 || 0) })])
+            h('div', null, [h('dt', { class: 'text-xs text-slate-500', text: 'Rang du choix obtenu' }), h('dd', { class: 'text-sm font-medium tabular text-slate-800', text: rankList().map(function (k) { return rankShort(k - 1) + ' ' + (pb.byRank['r' + k] || 0); }).join(' · ') })])
           ]),
           extra.length ? h('div', { class: 'mt-3 flex flex-wrap gap-1' }, extra.map(function (k) { return badge(SOURCE_UI[k].label + ' : ' + pb.bySource[k], SOURCE_UI[k].cls, SOURCE_UI[k].title); })) : null
         ]);
@@ -1180,17 +1205,17 @@
     function demandCard() {
       var d = ov.demand, r = ov.config.rules;
       var rows = branches().map(function (b) {
-        var s = d.perBranch[b] || { c1: 0, c2: 0, c3: 0 };
-        var over = s.c1 - r.max;
+        var s = d.perBranch[b] || {};
+        var over = (s.c1 || 0) - r.max;
         return h('tr', { class: 'hover:bg-slate-50' }, [
           td(h('div', { class: 'flex items-center gap-2' }, [h('span', { class: 'w-2.5 h-2.5 rounded-full ' + tone(b).dot }), h('span', { class: 'font-medium text-slate-900', text: b })])),
-          td(h('div', { class: 'flex items-center gap-2' }, [h('span', { class: 'font-semibold tabular text-slate-900', text: String(s.c1) }), over > 0 ? badge('+' + over + ' au-delà du plafond', 'bg-red-50 text-red-700 ring-red-200') : null])),
-          td(String(s.c2), 'tabular text-slate-600'),
-          td(String(s.c3), 'tabular text-slate-600')
-        ]);
+          td(h('div', { class: 'flex items-center gap-2' }, [h('span', { class: 'font-semibold tabular text-slate-900', text: String(s.c1 || 0) }), over > 0 ? badge('+' + over + (branches().length > 3 ? '' : ' au-delà du plafond'), 'bg-red-50 text-red-700 ring-red-200', over + ' au-delà du plafond de ' + r.max) : null]))
+        ].concat(rankList().slice(1).map(function (k) { return td(String(s['c' + k] || 0), 'tabular text-slate-600'); })));
       });
+      // [V2] Au-delà de 3 spécialités, seuls les classements effectivement choisis sont listés
+      var shown = branches().length > 3 ? d.rankings.filter(function (x) { return x.count > 0; }) : d.rankings;
       var maxCount = Math.max.apply(null, d.rankings.map(function (x) { return x.count; }).concat([1]));
-      var ranks = h('ul', { class: 'space-y-2' }, d.rankings.map(function (x) {
+      var ranks = shown.length ? h('ul', { class: 'space-y-2' }, shown.map(function (x) {
         var bar = h('div', { class: 'h-1.5 rounded-full bg-slate-100 overflow-hidden' }, (function () {
           var f = h('div', { class: 'h-full rounded-full ' + tone(x.order[0]).bar }); f.style.width = (x.count / maxCount * 100) + '%'; return f;
         })());
@@ -1201,9 +1226,9 @@
           h('span', { class: 'text-sm font-semibold tabular text-slate-900', text: String(x.count) }),
           h('div', { class: 'col-span-2' }, bar)
         ]);
-      }));
+      })) : h('p', { class: 'text-sm text-slate-500', text: 'Aucun classement enregistré pour l’instant.' });
       return card('Demande exprimée', 'Choix enregistrés uniquement. Le plafond de ' + r.max + ' places limite chaque filière.', [
-        tableWrap(['Filière', '1er choix', '2e choix', '3e choix'], rows),
+        tableWrap(['Filière'].concat(rankList().map(function (k) { return rankShort(k - 1) + ' choix'; })), rows),
         h('div', { class: 'mt-5 text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3', text: 'Classements complets' }),
         ranks
       ], { icon: 'table', actions: [btn('Exporter', { size: 'sm', variant: 'ghost', icon: 'download', onClick: function () { exportCsv('demand'); } })] });
@@ -1274,7 +1299,7 @@
           td(r.savedAt ? fmtDateTime(r.savedAt) : '—', 'text-xs text-slate-500 whitespace-nowrap tabular'),
           td(h('div', { class: 'flex flex-nowrap items-center gap-1.5 whitespace-nowrap' }, [
             branchPill(r.assigned),
-            r.choiceRank ? h('span', { class: 'text-xs text-slate-500', text: RANK_SHORT[r.choiceRank - 1] + ' choix' }) : null,
+            r.choiceRank ? h('span', { class: 'text-xs text-slate-500', text: rankShort(r.choiceRank - 1) + ' choix' }) : null,
             r.source && r.source !== 'ALGO' ? sourceBadge(r.source) : null
           ])),
           td(st ? statusBadge(st) : h('span', { class: 'text-xs text-slate-300', text: tally ? '—' : '…' })),
@@ -1362,7 +1387,7 @@
       parts.push(drawerSection('Affectation provisoire', h('div', null, [
         h('div', { class: 'flex flex-wrap items-center gap-2' }, [
           branchPill(a.branch, 'text-sm px-2.5 py-1'),
-          a.choiceRank ? h('span', { class: 'text-sm text-slate-600', text: RANK_SHORT[a.choiceRank - 1] + ' choix' }) : null,
+          a.choiceRank ? h('span', { class: 'text-sm text-slate-600', text: rankShort(a.choiceRank - 1) + ' choix' }) : null,
           sourceBadge(a.source)
         ]),
         h('p', { class: 'mt-3 text-sm leading-relaxed text-slate-700', text: a.explanation })
@@ -1392,7 +1417,9 @@
           h('span', { class: 'absolute -left-[5px] mt-1.5 w-2.5 h-2.5 rounded-full ring-4 ring-white ' + (i === 0 ? 'bg-blue-600' : 'bg-slate-300') }),
           h('div', { class: 'flex flex-wrap items-center gap-2 text-xs text-slate-500' }, [
             h('span', { class: 'tabular', text: fmtDateTime(x.at) }),
-            x.source === 'ADMIN' ? badge('Administration', 'bg-blue-50 text-blue-700 ring-blue-200', x.author || null) : badge('Étudiant', 'bg-slate-100 text-slate-600 ring-slate-200')
+            x.source === 'ADMIN' ? badge('Administration', 'bg-blue-50 text-blue-700 ring-blue-200', x.author || null)
+              : x.source === 'SPECIALITES' ? badge('Liste des spécialités modifiée', 'bg-amber-50 text-amber-800 ring-amber-200', x.author || null)
+              : badge('Étudiant', 'bg-slate-100 text-slate-600 ring-slate-200')
           ]),
           h('div', { class: 'mt-1.5' }, rankingChips(x.choices))
         ]);
@@ -1412,8 +1439,8 @@
 
     function choiceSelects(current) {
       var list = branches();
-      var sels = [0, 1, 2].map(function (i) {
-        var s = h('select', { class: inputCls(), 'aria-label': RANK_SHORT[i] + ' choix' });
+      var sels = list.map(function (x, i) {
+        var s = h('select', { class: inputCls(), 'aria-label': rankShort(i) + ' choix' });
         s.appendChild(h('option', { value: '', text: '— Choisir une filière —' }));
         list.forEach(function (b) { s.appendChild(h('option', { value: b, text: b })); });
         s.value = current && current[i] ? current[i] : '';
@@ -1431,14 +1458,14 @@
       sels.forEach(function (s) { s.addEventListener('change', function () { s.removeAttribute('aria-invalid'); sync(); }); });
       sync();
       return {
-        nodes: sels.map(function (s, i) { return field(['1er', '2e', '3e'][i] + ' choix', s); }),
+        nodes: sels.map(function (s, i) { return field(rankShort(i) + ' choix', s); }),
         value: function () { return sels.map(function (s) { return s.value; }); },
         validate: function () {
           var v = sels.map(function (s) { return s.value; });
           var ok = true;
           sels.forEach(function (s) { if (!s.value) { s.setAttribute('aria-invalid', 'true'); ok = false; } });
-          if (!ok) return 'Choisissez une filière pour chacun des 3 rangs.';
-          if (v[0] === v[1] || v[1] === v[2] || v[0] === v[2]) return 'Chaque filière ne peut apparaître qu’une fois.';
+          if (!ok) return 'Choisissez une filière pour chacun des ' + sels.length + ' rangs.';
+          if (v.some(function (x, i) { return v.indexOf(x) !== i; })) return 'Chaque filière ne peut apparaître qu’une fois.';
           return null;
         }
       };
@@ -1568,7 +1595,7 @@
           editing ? h('div', { class: 'flex flex-col' }, [
             h('button', { type: 'button', class: 'p-1 rounded text-slate-500 hover:bg-white hover:text-slate-900 disabled:opacity-30', 'aria-label': 'Monter ' + name, disabled: i === 0 || null, onclick: function () { moveTie(i, -1); } }, icon('chevronUp', 'w-4 h-4')),
             h('button', { type: 'button', class: 'p-1 rounded text-slate-500 hover:bg-white hover:text-slate-900 disabled:opacity-30', 'aria-label': 'Descendre ' + name, disabled: i === order.length - 1 || null, onclick: function () { moveTie(i, 1); } }, icon('chevronDown', 'w-4 h-4'))
-          ]) : h('div', { class: 'text-right shrink-0' }, [branchPill(m.assigned), m.choiceRank ? h('div', { class: 'mt-0.5 text-[11px] text-slate-500', text: RANK_SHORT[m.choiceRank - 1] + ' choix' }) : null])
+          ]) : h('div', { class: 'text-right shrink-0' }, [branchPill(m.assigned), m.choiceRank ? h('div', { class: 'mt-0.5 text-[11px] text-slate-500', text: rankShort(m.choiceRank - 1) + ' choix' }) : null])
         ]);
       }));
       var status = t.resolved ? badge('Départagée', 'bg-green-50 text-green-700 ring-green-200')
@@ -1703,7 +1730,7 @@
       var rows = ov.roster.filter(function (r) { return r.assigned === cur; }).map(function (r) {
         return h('tr', { class: 'row-link hover:bg-slate-50', onclick: function () { openStudent(r.name); } }, [
           td('#' + r.rank, 'tabular text-slate-500 w-14'), td(r.name, 'font-medium text-slate-900'), td(fmtGrade(r.grade), 'tabular'),
-          td(r.choiceRank ? RANK_SHORT[r.choiceRank - 1] + ' choix' : '—', 'text-slate-600'), td(sourceBadge(r.source))
+          td(r.choiceRank ? rankShort(r.choiceRank - 1) + ' choix' : '—', 'text-slate-600'), td(sourceBadge(r.source))
         ]);
       });
       return card('Répartition par filière', null, [
@@ -1729,18 +1756,19 @@
       function drawDerived() {
         clear(derived);
         var mx = Number(w.max), mn = Number(w.min);
+        var B = branches().length, O = B - 1; // [V2] n filières, n − 1 « autres »
         var valid = isFinite(mx) && isFinite(mn) && w.max !== '' && w.min !== '' && mn >= 0 && mn <= mx && Math.floor(mx) === mx && Math.floor(mn) === mn;
         var checks = valid ? [
-          { ok: 3 * mx >= N, text: '3 × ' + mx + ' = ' + (3 * mx) + ' places ' + (3 * mx >= N ? '≥ ' : '< ') + N + ' étudiants' },
-          { ok: 3 * mn <= N, text: '3 × ' + mn + ' = ' + (3 * mn) + (3 * mn <= N ? ' ≤ ' : ' > ') + N + ' étudiants' }
+          { ok: B * mx >= N, text: B + ' × ' + mx + ' = ' + (B * mx) + ' places ' + (B * mx >= N ? '≥ ' : '< ') + N + ' étudiants' },
+          { ok: B * mn <= N, text: B + ' × ' + mn + ' = ' + (B * mn) + (B * mn <= N ? ' ≤ ' : ' > ') + N + ' étudiants' }
         ] : [{ ok: false, text: 'Saisissez des entiers avec 0 ≤ minimum ≤ maximum.' }];
-        var floor = valid ? Math.max(mn, N - 2 * mx) : null;
+        var floor = valid ? Math.max(mn, N - O * mx) : null;
         add(derived, [
           h('div', { class: 'rounded-lg bg-slate-50 border border-slate-200 p-4' }, [
             h('div', { class: 'text-xs font-medium text-slate-500', text: 'Plancher garanti par filière' }),
             h('div', { class: 'mt-0.5 text-2xl font-semibold tabular text-slate-900', text: floor === null ? '—' : String(floor) }),
-            h('div', { class: 'text-xs text-slate-500', text: 'max(minimum, ' + N + ' − 2 × plafond)' }),
-            valid && N - 2 * mx >= mn ? h('p', { class: 'mt-2 text-xs text-slate-600', text: 'Le minimum n’est pas contraignant avec ce plafond : il ne jouerait qu’avec un plafond d’environ ' + Math.ceil((N - mn) / 2 + 1) + ' ou plus.' }) : null
+            h('div', { class: 'text-xs text-slate-500', text: 'max(minimum, ' + N + ' − ' + O + ' × plafond)' }),
+            valid && N - O * mx >= mn ? h('p', { class: 'mt-2 text-xs text-slate-600', text: 'Le minimum n’est pas contraignant avec ce plafond : il ne jouerait qu’avec un plafond d’environ ' + Math.ceil((N - mn) / O + 1) + ' ou plus.' }) : null
           ]),
           h('ul', { class: 'mt-3 space-y-1.5' }, checks.map(function (x) {
             return h('li', { class: 'flex items-center gap-2 text-sm ' + (x.ok ? 'text-emerald-700' : 'text-red-700') }, [icon(x.ok ? 'checkCircle' : 'warning', 'w-4 h-4 shrink-0'), x.text]);
@@ -1817,9 +1845,9 @@
           ].concat(res.warnings.map(function (x) { return callout('warning', x); }))),
           tableWrap(['Filière', 'Actuel', 'Dern. note', 'Scénario', 'Dern. note', 'Écart'], rows),
           h('div', { class: 'mt-4' }, tableWrap(['Satisfaction', 'Actuel', 'Scénario'], [
-            satRow('1er choix obtenu', 'r1'), satRow('2e choix', 'r2'), satRow('3e choix', 'r3'),
+            satRow('1er choix obtenu', 'r1')].concat(rankList().slice(1).map(function (k) { return satRow(rankShort(k - 1) + ' choix', 'r' + k); }), [
             satRow('Rang moyen', 'avgRank', fmtDec), satRow('Non placés', 'unplaced')
-          ])),
+          ]))),
           h('div', { class: 'mt-5 flex flex-wrap items-center gap-3' }, [
             btn('Appliquer ces règles', { variant: 'primary', icon: 'check', disabled: same || !res.feasible || !!busy, onClick: function () {
               confirmAction({
@@ -2041,12 +2069,259 @@
       return card('Règles de répartition', null, [
         h('div', { class: 'grid grid-cols-3 gap-4' }, [
           stat('Plafond', String(r.max), 'par filière', 'text-blue-800'),
-          stat('Plancher garanti', String(r.floor), N + ' − 2 × ' + r.max),
+          stat('Plancher garanti', String(r.floor), N + ' − ' + (branches().length - 1) + ' × ' + r.max),
           stat('Minimum', String(r.min), r.floor > r.min ? 'non contraignant' : 'contraignant')
         ]),
         (r.min !== r.defaultMin || r.max !== r.defaultMax) ? h('p', { class: 'mt-3 text-xs text-amber-700', text: 'Règles modifiées (par défaut : ' + r.defaultMin + ' / ' + r.defaultMax + ').' }) : null,
         h('div', { class: 'mt-4' }, btn('Tester d’autres règles', { icon: 'beaker', onClick: function () { go('whatif'); } }))
       ], { icon: 'scale' });
+    }
+
+    // =====================================================================
+    // [V2] Formation & spécialités : nom affiché, effectif attendu, liste des spécialités
+    // =====================================================================
+    function branchKey(t) {
+      var x = String(t || '').toLowerCase();
+      if (x.normalize) x = x.normalize('NFD').replace(/[̀-ͯ]/g, '');
+      return x.replace(/\s+/g, ' ').trim();
+    }
+    function cleanName(t) { return String(t || '').replace(/\s+/g, ' ').trim(); }
+
+    // Ce que fera l'enregistrement (même règle que le serveur : un nom retiré puis recréé est conservé)
+    function programPlan(d, cur) {
+      var items = d.items.map(function (it) { return { from: it.from, name: cleanName(it.name) }; });
+      var kept = {};
+      items.forEach(function (it) { if (it.from !== null) kept[it.from] = true; });
+      items.forEach(function (it) {
+        if (it.from !== null) return;
+        for (var i = 0; i < cur.length; i++) {
+          if (!kept[cur[i]] && branchKey(cur[i]) === branchKey(it.name)) { it.from = cur[i]; kept[cur[i]] = true; break; }
+        }
+      });
+      var names = items.map(function (it) { return it.name; });
+      return {
+        names: names,
+        renamed: items.filter(function (it) { return it.from !== null && it.from !== it.name; }),
+        added: items.filter(function (it) { return it.from === null; }).map(function (it) { return it.name; }),
+        removed: cur.filter(function (b) { return !kept[b]; }),
+        changed: names.join('\n') !== cur.join('\n')
+      };
+    }
+
+    function programProblems(d, plan, pg) {
+      var out = { rows: [], general: [] };
+      var seen = {};
+      plan.names.forEach(function (n, i) {
+        var p = null;
+        if (!n) p = 'Nom vide.';
+        else if (n.length > (pg.branchMaxLength || 60)) p = (pg.branchMaxLength || 60) + ' caractères au plus.';
+        else if (/^[=+\-@]/.test(n)) p = 'Ne peut pas commencer par =, +, - ou @.';
+        else if (seen[branchKey(n)]) p = 'Déjà dans la liste.';
+        if (n) seen[branchKey(n)] = true;
+        out.rows[i] = p;
+      });
+      var name = cleanName(d.name);
+      if (!name) out.general.push('Indiquez le nom de la formation.');
+      var size = Number(d.classSize);
+      if (!/^\d{1,3}$/.test(String(d.classSize).trim()) || size < 1) out.general.push('L’effectif attendu doit être un entier entre 1 et 999.');
+      return out;
+    }
+
+    function viewProgram() {
+      var c = ov.config, pg = c.program || {};
+      var cur = branches();
+      var base = cur.join('\n');
+      var minB = pg.minBranches || 2, maxB = pg.maxBranches || 4;
+      // Brouillon : resynchronisé avec le serveur tant que vous ne l'avez pas modifié
+      if (!ui.program || !ui.program.dirty) {
+        ui.program = { name: pg.name || '', classSize: String(pg.classSize || ''), items: cur.map(function (b) { return { from: b, name: b }; }), removed: [], base: base, dirty: false };
+      }
+      var d = ui.program;
+      var conflict = d.dirty && d.base !== base;
+      var N = ov.participation.classSize, saved = ov.participation.choicesSaved, r = c.rules;
+
+      var nameIn = h('input', { type: 'text', value: d.name, maxlength: String(pg.nameMaxLength || 40), class: inputCls(), id: 'progName', placeholder: 'Ex. : CI2 RST, CI2 GI' });
+      var sizeIn = h('input', { type: 'number', min: '1', max: '999', step: '1', value: d.classSize, class: inputCls('tabular'), id: 'progSize' });
+      nameIn.addEventListener('input', function () { d.name = nameIn.value; d.dirty = true; refresh(); });
+      sizeIn.addEventListener('input', function () { d.classSize = sizeIn.value; d.dirty = true; refresh(); });
+
+      var rowTags = [], rowErrs = [], inputs = [];
+      var rows = d.items.map(function (it, i) {
+        var t = BRANCH_TONES[i % BRANCH_TONES.length];
+        var inp = h('input', { type: 'text', value: it.name, maxlength: String(pg.branchMaxLength || 60), class: inputCls(), id: 'progItem' + i, 'aria-label': 'Spécialité ' + (i + 1), placeholder: 'Nom de la spécialité' });
+        inp.addEventListener('input', function () { it.name = inp.value; d.dirty = true; refresh(); });
+        inputs.push(inp);
+        var tag = h('span', { class: 'shrink-0' });
+        var err = h('p', { class: 'is-hidden mt-1 ml-12 text-xs text-red-700' });
+        rowTags.push(tag); rowErrs.push(err);
+        return h('li', null, [
+          h('div', { class: 'flex items-center gap-2' }, [
+            h('span', { class: 'w-5 text-right text-xs font-semibold tabular text-slate-400', text: (i + 1) + '.' }),
+            h('span', { class: 'w-2.5 h-2.5 shrink-0 rounded-full ' + t.dot }),
+            h('div', { class: 'flex-1 min-w-0' }, inp),
+            tag,
+            h('button', {
+              type: 'button', class: 'shrink-0 rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400',
+              'aria-label': 'Retirer cette spécialité', title: d.items.length <= minB ? 'Il faut au moins ' + minB + ' spécialités.' : 'Retirer cette spécialité',
+              disabled: d.items.length <= minB || null,
+              onclick: function () {
+                if (it.from !== null) d.removed.push({ from: it.from, name: it.name, idx: i });
+                d.items.splice(i, 1); d.dirty = true; renderTab();
+              }
+            }, icon('trash', 'w-4 h-4'))
+          ]),
+          err
+        ]);
+      });
+      var addBtn = btn('Ajouter une spécialité', { icon: 'sparkles', size: 'sm', disabled: d.items.length >= maxB, title: d.items.length >= maxB ? maxB + ' spécialités au plus.' : null, onClick: function () {
+        d.items.push({ from: null, name: '' }); d.dirty = true; renderTab();
+        setTimeout(function () { var x = $('progItem' + (d.items.length - 1)); if (x) x.focus(); }, 0);
+      } });
+      var removedChips = d.removed.length ? h('div', { class: 'mt-3 flex flex-wrap items-center gap-2 text-xs' }, [h('span', { class: 'text-slate-500', text: 'Retirées :' })].concat(d.removed.map(function (x, k) {
+        return h('span', { class: 'inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-red-800 ring-1 ring-inset ring-red-200' }, [
+          h('span', { class: 'line-through', text: x.from }),
+          h('button', { type: 'button', class: 'font-semibold underline disabled:opacity-40', text: 'Rétablir', disabled: d.items.length >= maxB || null, onclick: function () {
+            d.items.splice(Math.min(x.idx, d.items.length), 0, { from: x.from, name: x.from }); d.removed.splice(k, 1); d.dirty = true; renderTab();
+          } })
+        ]);
+      }))) : null;
+
+      var impact = h('div', { class: 'space-y-2' });
+      var general = h('div', { class: 'space-y-2' });
+      var saveBtn = btn('Enregistrer', { variant: 'primary', icon: 'check', onClick: function () { confirmSave(); } });
+      var plan = null, problems = null, blocking = [];
+
+      // Recalcule l'aperçu, les contrôles et l'état du bouton sans redessiner la page (la saisie garde le focus)
+      function refresh() {
+        plan = programPlan(d, cur);
+        problems = programProblems(d, plan, pg);
+        rowTags.forEach(function (tag, i) {
+          clear(tag);
+          var it = d.items[i];
+          if (it.from === null) tag.appendChild(badge('Nouvelle', 'bg-emerald-50 text-emerald-700 ring-emerald-200'));
+          else if (cleanName(it.name) !== it.from) tag.appendChild(badge('Renommée', 'bg-blue-50 text-blue-700 ring-blue-200', 'Ancien nom : ' + it.from));
+          var p = problems.rows[i];
+          rowErrs[i].textContent = p || '';
+          show(rowErrs[i], !!p);
+          if (p) inputs[i].setAttribute('aria-invalid', 'true'); else inputs[i].removeAttribute('aria-invalid');
+        });
+        blocking = problems.general.slice();
+        clear(general);
+        problems.general.forEach(function (m) { general.appendChild(h('p', { class: 'text-xs text-red-700', text: m })); });
+        clear(impact);
+        var forcedHit = ov.roster.filter(function (x) { return x.forcedBranch && plan.removed.indexOf(x.forcedBranch) !== -1; });
+        if (plan.changed && published()) blocking.push('Résultats publiés : dépubliez-les d’abord pour modifier la liste (le nom de la formation reste modifiable).');
+        if (forcedHit.length) blocking.push(plural(forcedHit.length, 'affectation imposée vise', 'affectations imposées visent') + ' une spécialité retirée (' + forcedHit.map(function (x) { return x.name; }).join(', ') + ') : retirez-les d’abord.');
+        if (plan.changed && N > 0 && plan.names.length * r.max < N) blocking.push('Avec ' + plan.names.length + ' spécialités et un plafond de ' + r.max + ', il n’y aurait que ' + (plan.names.length * r.max) + ' places pour ' + N + ' étudiants : relevez d’abord le plafond (Simulation des règles).');
+        if (plan.changed && N > 0 && plan.names.length * r.min > N) blocking.push('Avec ' + plan.names.length + ' spécialités et un minimum de ' + r.min + ', il faudrait au moins ' + (plan.names.length * r.min) + ' étudiants : baissez d’abord le minimum (Simulation des règles).');
+        blocking.forEach(function (m) { impact.appendChild(callout('danger', m)); });
+        if (plan.changed && !blocking.length) {
+          if ((plan.added.length || plan.removed.length) && saved) {
+            impact.appendChild(callout('warning', plural(saved, 'classement enregistré sera mis à jour', 'classements enregistrés seront mis à jour') + ' : ' +
+              [plan.added.length ? plan.added.join(', ') + ' en dernier choix' : null, plan.removed.length ? plan.removed.join(', ') + ' retirée' + (plan.removed.length > 1 ? 's' : '') + ' (l’ordre des autres est conservé)' : null].filter(Boolean).join(' ; ') + '.' +
+              (locked() ? ' Les choix sont clos : rouvrez-les si les étudiants doivent pouvoir revoir leur classement.' : ' Les étudiants pourront revoir leur classement.')));
+          } else if (plan.renamed.length && saved) {
+            impact.appendChild(callout('info', 'Les classements enregistrés gardent leur ordre : seuls les noms changent (Preferences, Historique et Surcharges sont mis à jour).'));
+          }
+          if (c.results.frozen.length) impact.appendChild(callout('info', 'Les affectations déjà figées restent telles quelles ; une affectation figée avec l’ancienne liste ne pourra plus être publiée.'));
+        }
+        var rowsOk = problems.rows.every(function (p) { return !p; });
+        var countOk = plan.names.length >= minB && plan.names.length <= maxB;
+        saveBtn.disabled = !!busy || !rowsOk || !countOk || blocking.length > 0 || !(d.dirty || pg.specialtiesInvalid || ov.health.preferencesLayout);
+      }
+
+      function confirmSave() {
+        refresh();
+        if (saveBtn.disabled) return;
+        var name = cleanName(d.name), size = Number(d.classSize);
+        var lines = [];
+        if (name !== pg.name) lines.push('Formation : « ' + pg.name + ' » → « ' + name + ' »');
+        plan.renamed.forEach(function (it) { lines.push('« ' + it.from + ' » renommée « ' + it.name + ' »'); });
+        plan.added.forEach(function (b) { lines.push('« ' + b + ' » ajoutée (en dernier choix dans les classements enregistrés)'); });
+        plan.removed.forEach(function (b) { lines.push('« ' + b + ' » retirée des classements enregistrés'); });
+        if (plan.changed && !plan.renamed.length && !plan.added.length && !plan.removed.length) lines.push('Ordre des spécialités modifié');
+        if (size !== pg.classSize) lines.push('Effectif attendu : ' + pg.classSize + ' → ' + size);
+        if (!lines.length) lines.push('Liste réenregistrée telle quelle');
+        confirmAction({
+          title: 'Enregistrer la formation et les spécialités ?',
+          intro: (plan.added.length || plan.removed.length) && saved
+            ? plural(saved, 'classement enregistré sera mis à jour', 'classements enregistrés seront mis à jour') + ' ; chaque modification est inscrite à l’historique de l’étudiant et au journal.'
+            : 'La modification est inscrite au journal.',
+          body: h('ul', { class: 'list-disc pl-5 space-y-1 text-sm text-slate-700' }, lines.map(function (x) { return h('li', { text: x }); })),
+          confirmLabel: 'Enregistrer', tone: plan.removed.length ? 'danger' : null, fn: 'adminSetProgram',
+          args: [{ name: name, classSize: size, base: cur, branches: d.items.map(function (it) { return { from: it.from, name: cleanName(it.name) }; }) }],
+          onOk: function () { ui.program = null; }
+        });
+      }
+
+      var preview = h('div', { class: 'rounded-xl overflow-hidden border border-slate-200' }, [
+        h('div', { class: 'bg-[#0b1f3a] px-4 py-3 text-white' }, [
+          h('div', { id: 'progPreviewLabel', class: 'text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-200/80 truncate' }),
+          h('div', { class: 'text-sm font-semibold', text: 'Choix de la spécialité' })
+        ]),
+        h('div', { id: 'progPreviewList', class: 'bg-white px-4 py-3 space-y-1.5' })
+      ]);
+      function drawPreview() {
+        var l = $('progPreviewLabel'), list = $('progPreviewList');
+        if (!l || !list) return;
+        l.textContent = 'Université Ibn Tofail · ' + (cleanName(d.name) || '…');
+        clear(list);
+        (plan ? plan.names : cur).forEach(function (n, i) {
+          list.appendChild(h('div', { class: 'flex items-center gap-2 text-sm' }, [
+            h('span', { class: 'w-16 shrink-0 text-xs text-slate-500', text: rankShort(i) + ' choix' }),
+            h('span', { class: 'flex-1 min-w-0 truncate rounded-md border border-slate-200 px-2 py-1 text-slate-800', text: n || '—' })
+          ]));
+        });
+      }
+      var baseRefresh = refresh;
+      refresh = function () { baseRefresh(); drawPreview(); };
+
+      var body = [
+        pg.specialtiesInvalid ? h('div', { class: 'mb-4' }, callout('danger', 'La propriété SPECIALTIES est illisible : la liste par défaut s’affiche ci-dessous et les choix sont verrouillés. Vérifiez la liste puis enregistrez-la pour réparer.')) : null,
+        conflict ? h('div', { class: 'mb-4' }, callout('warning', h('div', null, [
+          h('p', { text: 'La liste des spécialités a changé depuis que vous avez commencé à la modifier (ailleurs, ou par un autre administrateur). Enregistrer sera refusé.' }),
+          h('button', { type: 'button', class: 'mt-1 text-xs font-semibold text-amber-900 underline', text: 'Abandonner ma saisie et reprendre la liste en vigueur', onclick: function () { ui.program = null; renderTab(); } })
+        ]))) : null,
+        h('div', { class: 'grid grid-cols-1 sm:grid-cols-3 gap-3' }, [
+          h('div', { class: 'sm:col-span-2' }, field('Nom de la formation', nameIn, 'En-tête des pages, titre de l’onglet et rappels par e-mail.', 'progName')),
+          field('Effectif attendu', sizeIn, 'Contrôle « Étudiants chargés ».', 'progSize')
+        ]),
+        general,
+        h('div', { class: 'mt-6 flex items-center justify-between gap-3' }, [
+          h('div', null, [
+            h('div', { class: 'text-sm font-semibold text-slate-900', text: 'Spécialités proposées' }),
+            h('p', { class: 'text-xs text-slate-500', text: 'De ' + minB + ' à ' + maxB + '. Les étudiants les classent toutes, dans l’ordre de leur choix.' })
+          ]),
+          addBtn
+        ]),
+        h('ol', { class: 'mt-3 space-y-2.5' }, rows),
+        removedChips,
+        h('div', { class: 'mt-5' }, impact),
+        h('div', { class: 'mt-5 flex flex-wrap gap-2' }, [
+          saveBtn,
+          d.dirty ? btn('Annuler mes modifications', { variant: 'subtle', onClick: function () { ui.program = null; renderTab(); } }) : null
+        ])
+      ];
+
+      var out = [
+        sectionHeader('Formation & spécialités', 'Nom affiché aux étudiants et liste des spécialités à classer. Utile pour adapter l’outil à une autre filière.'),
+        h('div', { class: 'grid grid-cols-1 xl:grid-cols-3 gap-6 items-start' }, [
+          h('div', { class: 'xl:col-span-2 min-w-0' }, card('Formation et spécialités', null, body, { icon: 'cap' })),
+          h('div', { class: 'space-y-6 min-w-0' }, [
+            card('Aperçu côté étudiant', null, preview, { icon: 'eye' }),
+            card('Ce qui se passe à l’enregistrement', null, h('ul', { class: 'space-y-2 text-sm text-slate-600 leading-relaxed' }, [
+              'Renommer garde la place de la spécialité dans chaque classement enregistré.',
+              'Une spécialité ajoutée est placée en dernier choix des classements déjà enregistrés.',
+              'Une spécialité retirée disparaît des classements ; l’ordre des autres est conservé.',
+              'Chaque classement modifié reçoit une ligne dans l’historique de l’étudiant ; l’action est inscrite au journal.',
+              'Pendant la publication des résultats, seul le nom de la formation est modifiable.'
+            ].map(function (t) { return h('li', { class: 'flex gap-2' }, [icon('check', 'w-4 h-4 mt-0.5 shrink-0 text-emerald-600'), h('span', { text: t })]); })), { icon: 'info' })
+          ])
+        ])
+      ];
+      setTimeout(refresh, 0); // une fois les nœuds dans la page (aperçu)
+      baseRefresh();
+      return out;
     }
 
     // =====================================================================
@@ -2285,6 +2560,15 @@
         if (!items || !items.length) return;
         sections.push(card(title + ' (' + items.length + ')', desc, h('ul', { class: 'divide-y divide-slate-100 text-sm max-h-72 overflow-y-auto' }, items.map(function (it) { return h('li', { class: 'py-2' }, render(it)); })), { icon: 'warning' }));
       };
+      // [V2] Liste des spécialités et disposition de Preferences
+      if (x.specialtiesInvalid) sections.push(card('Liste des spécialités illisible', null, h('div', { class: 'space-y-3' }, [
+        callout('danger', 'La propriété SPECIALTIES ne contient pas une liste valable (2 à 4 noms distincts) : la liste par défaut est affichée et les choix sont verrouillés.'),
+        btn('Enregistrer la bonne liste', { icon: 'pencil', onClick: function () { go('program'); } })
+      ]), { icon: 'warning' }));
+      if (x.preferencesLayout) sections.push(card('Feuille Preferences à remettre en forme', null, h('div', { class: 'space-y-3' }, [
+        callout('danger', 'Preferences a ' + plural(x.preferencesLayout.found, 'colonne', 'colonnes') + ' de choix pour ' + x.preferencesLayout.expected + ' spécialités (propriété SPECIALTIES modifiée à la main ?) : les enregistrements des étudiants sont refusés. Réenregistrez la liste dans « Formation & spécialités » (ou lancez setupSheets depuis l’éditeur).'),
+        btn('Ouvrir Formation & spécialités', { icon: 'pencil', onClick: function () { go('program'); } })
+      ]), { icon: 'warning' }));
       listCard('Lignes écartées de Responses', 'Ces lignes sont ignorées : les étudiants concernés ne peuvent pas se connecter.', x.skipped, function (s) {
         return [h('span', { class: 'font-semibold tabular text-slate-900', text: 'Ligne ' + s.line + ' : ' }), s.why];
       });
@@ -2292,7 +2576,7 @@
       listCard('Choix en double', 'Plusieurs lignes de Preferences pour le même étudiant : la dernière est utilisée.', x.duplicatePreferences, function (d) {
         return [h('span', { class: 'font-medium text-slate-900', text: d.name }), ' — lignes ' + d.rows.join(', ')];
       });
-      listCard('Choix illisibles', 'Lignes de Preferences dont les trois filières ne sont pas valides.', x.invalidPreferences, function (d) {
+      listCard('Choix illisibles', 'Lignes de Preferences dont le classement des ' + branches().length + ' filières n’est pas valable.', x.invalidPreferences, function (d) {
         return [h('span', { class: 'font-medium text-slate-900', text: d.name }), ' — lignes ' + d.rows.join(', ')];
       });
       listCard('Noms qui peuvent se confondre', 'Sans colonne Email, l’adresse de l’un peut correspondre aux deux noms : l’étudiant serait refusé. Renseignez leur adresse en colonne C.', x.ambiguousNames, function (p) {
@@ -2476,7 +2760,9 @@
       var delay = q.has('delay') ? Math.max(0, Number(q.get('delay')) || 0) : 350;
       var fail = String(q.get('fail') || '').toLowerCase();
       var pollSec = Number(q.get('poll'));
-      var BR = ['Cybersécurité', 'Réseaux Mobiles', 'Systèmes Ubiquitaires'];
+      var DEFAULT_BR = ['Cybersécurité', 'Réseaux Mobiles', 'Systèmes Ubiquitaires'];
+      var BR = DEFAULT_BR.slice(); // [V2] modifiable par adminSetProgram (démo)
+      var PROGRAM = { name: 'CI2 RST', classSize: 70 };
       var ADMIN = 'tomader.mazri@uit.ac.ma';
       var TZ = 'Africa/Casablanca';
       var URL_STUDENT = 'https://script.google.com/a/macros/uit.ac.ma/s/EXEMPLE/exec';
@@ -2494,6 +2780,17 @@
       function copy(v) { return JSON.parse(JSON.stringify(v)); }
       function same(a, b) { return !!a && !!b && a.join('|') === b.join('|'); }
       function fmtG(g) { return g.toFixed(2).replace('.', ','); }
+      // [V2] Tous les classements de la liste, dans l'ordre lexicographique (comme rankingsOf_ côté serveur)
+      function rankingsOf(items) {
+        if (items.length <= 1) return [items.slice()];
+        var out = [];
+        items.forEach(function (first, i) {
+          rankingsOf(items.slice(0, i).concat(items.slice(i + 1))).forEach(function (rest) { out.push([first].concat(rest)); });
+        });
+        return out;
+      }
+      function zeros() { return BR.map(function () { return 0; }); }
+      function rankKeys(prefix, into) { BR.forEach(function (b, k) { into[prefix + (k + 1)] = 0; }); return into; }
 
       // ---- Fuseau de l'établissement ----
       function tzOffset(ms) {
@@ -2580,6 +2877,9 @@
         if (db.announcement) push('ANNOUNCEMENT', JSON.stringify(db.announcement));
         if (db.frozen.length) push('FROZEN_SHEETS', JSON.stringify(db.frozen.map(function (f) { return { sheet: f.sheet, at: f.at, by: f.by }; })).slice(0, 300));
         if (db.published) push('PUBLISHED_SHEET', JSON.stringify(db.published));
+        if (PROGRAM.name !== 'CI2 RST') push('PROGRAM_NAME', PROGRAM.name);
+        if (BR.join('|') !== DEFAULT_BR.join('|')) push('SPECIALTIES', JSON.stringify(BR));
+        if (PROGRAM.classSize !== 70) push('CLASS_SIZE', PROGRAM.classSize);
         return out;
       }
       function journal(action, details, at) { db.journal.push({ at: iso(at || Date.now()), admin: ADMIN, action: action, details: details }); }
@@ -2626,7 +2926,7 @@
         return idx;
       }
       function run(order, R) {
-        var counts = [0, 0, 0], res = [], done = [], unplaced = students.length;
+        var counts = zeros(), res = [], done = [], unplaced = students.length;
         students.forEach(function (s, k) { res[k] = { branch: null, choiceRank: null, source: null, reason: null, rank: 0, at: null, remaining: null }; done[k] = false; });
         order.forEach(function (k, pos) { res[k].rank = pos + 1; });
         order.forEach(function (k) {
@@ -2704,8 +3004,9 @@
         return { rules: R, order: order, res: base.res, counts: counts, ties: ties, unresolvedTies: unresolved };
       }
       function summary(a) {
-        var per = {}, sat = { r1: 0, r2: 0, r3: 0, placed: 0, unplaced: 0, avgRank: null }, sum = 0, n = 0;
-        BR.forEach(function (b) { per[b] = { count: 0, seatsLeft: 0, full: false, cutoffGrade: null, byRank: { r1: 0, r2: 0, r3: 0 }, bySource: { ALGO: 0, TIEBREAK: 0, MANUAL: 0, AUTO: 0 } }; });
+        var per = {}, sat = rankKeys('r', {}), sum = 0, n = 0;
+        sat.placed = 0; sat.unplaced = 0; sat.avgRank = null;
+        BR.forEach(function (b) { per[b] = { count: 0, seatsLeft: 0, full: false, cutoffGrade: null, byRank: rankKeys('r', {}), bySource: { ALGO: 0, TIEBREAK: 0, MANUAL: 0, AUTO: 0 } }; });
         a.order.forEach(function (k) {
           var r = a.res[k];
           if (!r.branch) { sat.unplaced++; return; }
@@ -2774,7 +3075,8 @@
         var tieOf = {};
         a.ties.forEach(function (t) { t.members.forEach(function (k) { tieOf[k] = t; }); });
         var saved = students.filter(function (x) { return x.choices; });
-        var firsts = saved.map(function (x) { var hh = historyOf(x.name); return hh.length ? hh[0].at : x.savedAt; }).sort(function (x, y) { return x - y; });
+        var own = function (name) { return historyOf(name).filter(function (hh) { return hh.source !== 'SPECIALITES'; }); }; // [V2]
+        var firsts = saved.map(function (x) { var hh = own(x.name); return hh.length ? hh[0].at : x.savedAt; }).sort(function (x, y) { return x - y; });
         var tl = { unit: 'hour', points: [] };
         if (firsts.length) {
           tl.unit = firsts[firsts.length - 1] - firsts[0] <= 48 * HOUR ? 'hour' : 'day';
@@ -2789,11 +3091,11 @@
           }
         }
         var changed = 0;
-        saved.forEach(function (x) { var d = {}; historyOf(x.name).forEach(function (hh) { d[hh.choices.join('|')] = 1; }); if (Object.keys(d).length > 1) changed++; });
+        saved.forEach(function (x) { var d = {}; own(x.name).forEach(function (hh) { d[hh.choices.join('|')] = 1; }); if (Object.keys(d).length > 1) changed++; });
         var perBranch = {};
-        BR.forEach(function (b) { perBranch[b] = { c1: 0, c2: 0, c3: 0 }; });
-        saved.forEach(function (x) { perBranch[x.choices[0]].c1++; perBranch[x.choices[1]].c2++; perBranch[x.choices[2]].c3++; });
-        var rankings = PERMS.map(function (p, k) { var o = p.map(function (i) { return BR[i]; }); return { order: o, count: saved.filter(function (x) { return same(x.choices, o); }).length, k: k }; })
+        BR.forEach(function (b) { perBranch[b] = rankKeys('c', {}); });
+        saved.forEach(function (x) { x.choices.forEach(function (b, k) { perBranch[b]['c' + (k + 1)]++; }); });
+        var rankings = rankingsOf(BR).map(function (o, k) { return { order: o, count: saved.filter(function (x) { return same(x.choices, o); }).length, k: k }; })
           .sort(function (x, y) { return (y.count - x.count) || (x.k - y.k); }).map(function (r) { return { order: r.order, count: r.count }; });
         var bubble = [];
         BR.forEach(function (b) {
@@ -2808,10 +3110,14 @@
         return copy({
           access: 'ADMIN', me: { email: ADMIN }, serverTime: iso(Date.now()), timeZone: TZ,
           config: {
-            branches: BR.slice(), expectedClassSize: 70, spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/EXEMPLE/edit',
-            rules: { min: db.min, max: db.max, defaultMin: 12, defaultMax: 26, floor: Math.max(db.min, N - 2 * db.max) },
+            branches: BR.slice(), expectedClassSize: PROGRAM.classSize, spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/EXEMPLE/edit',
+            program: {
+              name: PROGRAM.name, classSize: PROGRAM.classSize, specialtiesInvalid: false, defaultName: 'CI2 RST', defaultClassSize: 70, defaultBranches: DEFAULT_BR.slice(),
+              minBranches: 2, maxBranches: 4, nameMaxLength: 40, branchMaxLength: 60, builtBy: 'Conçu et développé par les étudiants de la filière RST'
+            },
+            rules: { min: db.min, max: db.max, defaultMin: 12, defaultMax: 26, floor: Math.max(db.min, N - (BR.length - 1) * db.max) },
             deadline: db.deadline === null ? null : iso(db.deadline), deadlineLocal: db.deadline === null ? null : msToLocal(db.deadline), deadlineInvalid: false,
-            locked: L.locked, manualLock: db.manualLock, deadlinePassed: L.passed, studentPageOpen: db.pageOpen, undecidedPolicy: db.policy,
+            locked: L.locked, specialtiesInvalid: false, manualLock: db.manualLock, deadlinePassed: L.passed, studentPageOpen: db.pageOpen, undecidedPolicy: db.policy,
             announcement: db.announcement,
             results: { frozen: db.frozen.map(function (f) { return { sheet: f.sheet, at: f.at, by: f.by, exists: f.exists }; }), published: db.published },
             mail: { available: !mailReason, reason: mailReason, remainingQuota: db.quota }, studentUrl: URL_STUDENT,
@@ -2836,7 +3142,7 @@
             })
           },
           health: {
-            loaded: N, expected: 70, publishedSheetMissing: false,
+            loaded: N, expected: PROGRAM.classSize, publishedSheetMissing: false, specialtiesInvalid: false, preferencesLayout: null,
             staleProperties: mockProps().filter(function (x) { return x.stale; }).map(function (x) { return x.key; }), skipped: db.skipped, orphanPreferences: db.orphans, duplicatePreferences: db.dups, invalidPreferences: db.invalid,
             ambiguousNames: db.ambiguous, emailColumn: { present: true, filled: filled }, badEmails: db.badEmails, staleOverrides: [], forcedOverflow: [], staleTieBreaks: []
           },
@@ -2883,13 +3189,13 @@
             parts.push(r.at && r.at[bi] >= db.max ? b + ' était complète (' + db.max + '/' + db.max + ') quand votre tour est arrivé ; dernière note admise : ' + fmtG(s.perBranch[b].cutoffGrade)
               : b + " n'était pas complète (" + (r.at ? r.at[bi] : '?') + '/' + db.max + '), mais les ' + r.remaining + ' étudiant(s) restant(s) étaient tous nécessaires pour atteindre le minimum de ' + db.min + ' places dans les autres filières');
           }
-          expl = (parts.length ? capitalize(parts.join(' ; ')) + '. ' : '') + (r.choiceRank === 1 ? 'Votre 1er choix, ' + r.branch + ', vous est attribué (rang ' + r.rank + ' sur ' + N + ').' : 'Vous êtes affecté(e) à ' + r.branch + ' (' + RANK_SHORT[r.choiceRank - 1] + ' choix, rang ' + r.rank + ' sur ' + N + ').') +
+          expl = (parts.length ? capitalize(parts.join(' ; ')) + '. ' : '') + (r.choiceRank === 1 ? 'Votre 1er choix, ' + r.branch + ', vous est attribué (rang ' + r.rank + ' sur ' + N + ').' : 'Vous êtes affecté(e) à ' + r.branch + ' (' + rankShort(r.choiceRank - 1) + ' choix, rang ' + r.rank + ' sur ' + N + ').') +
             (r.source === 'TIEBREAK' ? " Votre égalité de note a été départagée par l'administration." : '');
         }
         var st = tallyNow().byStudent[x.name];
         var undecidedAbove = students.filter(function (y) { return y.grade > x.grade && !y.choices; }).length;
         var tiedN = students.filter(function (y) { return y !== x && y.grade === x.grade; }).length;
-        var proj = !x.choices ? { status: 'NO_CHOICES', choices: null, isSaved: false, bestBranch: null, worstBranch: null, reason: null, message: "Vous n'avez pas encore enregistré de choix. Classez les 3 filières, prévisualisez, puis enregistrez." }
+        var proj = !x.choices ? { status: 'NO_CHOICES', choices: null, isSaved: false, bestBranch: null, worstBranch: null, reason: null, message: "Vous n'avez pas encore enregistré de choix. Classez les " + BR.length + ' filières, prévisualisez, puis enregistrez.' }
           : st === 'SECURE' ? { status: st, choices: x.choices, isSaved: true, bestBranch: x.choices[0], worstBranch: x.choices[0], reason: null, message: 'Votre 1er choix (' + x.choices[0] + ") est assuré avec les données actuelles : même dans le pire scénario (étudiants à égalité ou indécis devant vous faisant les choix les plus défavorables), vous l'obtenez." }
           : st === 'FALLBACK_SECURED' ? { status: st, choices: x.choices, isSaved: true, bestBranch: r.branch, worstBranch: r.branch, reason: 'CAPACITY', message: 'Votre 1er choix (' + x.choices[0] + ") n'est pas atteignable, même dans le meilleur scénario : " + x.choices[0] + ' est complet (' + db.max + ' places au maximum) avant votre rang. Dans tous les scénarios, vous êtes affecté(e) à ' + r.branch + '.' }
           : { status: st, choices: x.choices, isSaved: true, bestBranch: x.choices[0], worstBranch: x.choices[1], reason: 'CAPACITY', message: 'Résultat incertain : au mieux ' + x.choices[0] + ' (1er choix), au pire ' + x.choices[1] + ' (2e choix).' + (tiedN ? ' Cela dépend de : ' + tiedN + ' étudiant(s) à égalité de note avec vous (départage inconnu).' : '') };
@@ -2941,15 +3247,16 @@
           var min = Number(o && o.min), max = Number(o && o.max), N = students.length;
           if (!isFinite(min) || !isFinite(max) || Math.floor(min) !== min || Math.floor(max) !== max || min < 0 || min > max) throw new Error('Règles invalides : saisissez des entiers avec 0 ≤ minimum ≤ maximum.');
           var cur = allocate(), scn = allocate({ min: min, max: max }), warnings = [];
-          var feasible = 3 * max >= N && 3 * min <= N;
-          if (3 * max < N) warnings.push('Plafond insuffisant : 3 × ' + max + ' = ' + (3 * max) + ' places pour ' + N + ' étudiants. Des étudiants resteraient sans filière.');
-          if (3 * min > N) warnings.push('Minimum impossible : 3 × ' + min + ' = ' + (3 * min) + " dépasse l'effectif de " + N + '.');
-          if (feasible && N - 2 * max >= min) warnings.push('Le minimum de ' + min + " n'est pas contraignant : avec un plafond de " + max + ', chaque filière reçoit forcément au moins ' + (N - 2 * max) + " étudiants. C'est le plafond qui décide.");
+          var B = BR.length, O = B - 1;
+          var feasible = B * max >= N && B * min <= N;
+          if (B * max < N) warnings.push('Plafond insuffisant : ' + B + ' × ' + max + ' = ' + (B * max) + ' places pour ' + N + ' étudiants. Des étudiants resteraient sans filière.');
+          if (B * min > N) warnings.push('Minimum impossible : ' + B + ' × ' + min + ' = ' + (B * min) + " dépasse l'effectif de " + N + '.');
+          if (feasible && N - O * max >= min) warnings.push('Le minimum de ' + min + " n'est pas contraignant : avec un plafond de " + max + ', chaque filière reçoit forcément au moins ' + (N - O * max) + " étudiants. C'est le plafond qui décide.");
           var pend = students.filter(function (x) { return !x.choices; }).length;
           if (pend) warnings.push(pend + ' étudiant(s) sans choix : ' + (db.policy === 'LAST' ? 'placés en dernier dans les filières qui en ont le plus besoin (politique actuelle).' : 'laissés non placés (politique manuelle actuelle).'));
           var pack = function (a) { var s = summary(a), per = {}; BR.forEach(function (b) { per[b] = { count: s.perBranch[b].count, cutoffGrade: s.perBranch[b].cutoffGrade, full: s.perBranch[b].full }; }); return { rules: a.rules, perBranch: per, satisfaction: s.satisfaction, unresolvedTies: a.unresolvedTies }; };
           return copy({
-            rules: { min: min, max: max, floor: Math.max(min, N - 2 * max) }, feasible: feasible, warnings: warnings,
+            rules: { min: min, max: max, floor: Math.max(min, N - O * max) }, feasible: feasible, warnings: warnings,
             summary: { current: pack(cur), scenario: pack(scn) },
             changed: cur.order.filter(function (k) { return cur.res[k].branch !== scn.res[k].branch; }).map(function (k) { return { name: students[k].name, grade: students[k].grade, from: cur.res[k].branch, to: scn.res[k].branch, fromRank: cur.res[k].choiceRank, toRank: scn.res[k].choiceRank }; })
           });
@@ -2963,8 +3270,8 @@
           var a = allocate(), table, base, stamp = msToLocal(Date.now()).replace(/-/g, '').replace(' ', '_').replace(':', '');
           if (kind === 'allocation') {
             table = [['Rang', 'Nom', 'Note', 'Choix 1', 'Choix 2', 'Choix 3', 'Filière affectée', 'Rang du choix obtenu', 'Origine', 'Commentaire']].concat(a.order.map(function (k) {
-              var x = students[k], r = a.res[k], c = x.choices || ['', '', ''];
-              return [r.rank, x.name, x.grade, c[0], c[1], c[2], r.branch || '', r.choiceRank || '', r.source || '', r.reason === 'CAPACITY' ? '1er choix complet' : r.reason === 'QUOTA' ? "Quota minimum d'une autre filière" : ''];
+              var x = students[k], r = a.res[k], c = BR.map(function (b, j) { return x.choices ? x.choices[j] : ''; });
+              return [r.rank, x.name, x.grade].concat(c, [r.branch || '', r.choiceRank || '', r.source || '', r.reason === 'CAPACITY' ? '1er choix complet' : r.reason === 'QUOTA' ? "Quota minimum d'une autre filière" : '']);
             }));
             base = 'affectation_provisoire';
           } else if (String(kind).indexOf('branch:') === 0) {
@@ -2973,7 +3280,7 @@
             base = 'filiere_' + squash(b);
           } else if (kind === 'demand') {
             var o = overview();
-            table = [['Filière', '1er choix', '2e choix', '3e choix']].concat(BR.map(function (b) { var p = o.demand.perBranch[b]; return [b, p.c1, p.c2, p.c3]; }));
+            table = [['Filière'].concat(BR.map(function (b, j) { return rankShort(j) + ' choix'; }))].concat(BR.map(function (b) { var p = o.demand.perBranch[b]; return [b].concat(BR.map(function (x, j) { return p['c' + (j + 1)]; })); }));
             table.push([]); table.push(['Classement complet', "Nombre d'étudiants"]);
             o.demand.rankings.forEach(function (r) { table.push([r.order.join(' > '), r.count]); });
             base = 'demande';
@@ -2981,9 +3288,9 @@
             table = [['Rang', 'Nom', 'Note', 'Email']].concat(a.order.filter(function (k) { return !students[k].choices; }).map(function (k) { return [a.res[k].rank, students[k].name, students[k].grade, students[k].email]; }));
             base = 'sans_choix';
           } else if (kind === 'roster') {
-            table = [['Rang', 'Nom', 'Note', 'Email', 'Choix 1', 'Choix 2', 'Choix 3', 'Enregistré le', 'Filière provisoire', 'Rang du choix', 'Origine']].concat(a.order.map(function (k) {
-              var x = students[k], r = a.res[k], c = x.choices || ['', '', ''];
-              return [r.rank, x.name, x.grade, x.email, c[0], c[1], c[2], x.savedAt ? msToLocal(x.savedAt) : '', r.branch || '', r.choiceRank || '', r.source || ''];
+            table = [['Rang', 'Nom', 'Note', 'Email'].concat(BR.map(function (b, j) { return 'Choix ' + (j + 1); }), ['Enregistré le', 'Filière provisoire', 'Rang du choix', 'Origine'])].concat(a.order.map(function (k) {
+              var x = students[k], r = a.res[k], c = BR.map(function (b, j) { return x.choices ? x.choices[j] : ''; });
+              return [r.rank, x.name, x.grade, x.email].concat(c, [x.savedAt ? msToLocal(x.savedAt) : '', r.branch || '', r.choiceRank || '', r.source || '']);
             }));
             base = 'liste_complete';
           } else throw new Error("Type d'export inconnu : " + kind + '.');
@@ -3007,8 +3314,8 @@
             recipients: pend.filter(function (x) { return x.email; }).map(function (x) { return { name: x.name, email: x.email }; }),
             missingEmail: pend.filter(function (x) { return !x.email; }).map(function (x) { return x.name; }),
             remainingQuota: db.quota, available: filled > 0 && db.quota > 0, reason: filled ? null : 'Renseignez la colonne C « Email » de la feuille Responses pour envoyer des rappels.',
-            defaultSubject: 'Rappel : classez vos filières de spécialité (CI2 RST)',
-            defaultBody: 'Bonjour {nom},\n\nVous n\'avez pas encore enregistré votre classement des filières de spécialité (' + BR.join(', ') + ').\n\nDate limite : {date_limite}\nLien : {lien}\n\nConnectez-vous avec votre compte @uit.ac.ma, classez les trois filières, puis appuyez sur « Enregistrer mes choix ».\n\nCordialement,\nLa coordination CI2 RST'
+            defaultSubject: 'Rappel : classez vos filières de spécialité (' + PROGRAM.name + ')',
+            defaultBody: 'Bonjour {nom},\n\nVous n\'avez pas encore enregistré votre classement des filières de spécialité (' + BR.join(', ') + ').\n\nDate limite : {date_limite}\nLien : {lien}\n\nConnectez-vous avec votre compte @uit.ac.ma, classez les ' + (['deux', 'trois', 'quatre'][BR.length - 2] || BR.length) + ' filières, puis appuyez sur « Enregistrer mes choix ».\n\nCordialement,\nLa coordination ' + PROGRAM.name
           });
         },
         adminSetDeadline: function (local, unlock) {
@@ -3038,8 +3345,9 @@
         },
         adminSetRules: function (o) {
           var min = Number(o.min), max = Number(o.max), N = students.length;
-          if (3 * max < N) throw new Error('Plafond insuffisant : 3 × ' + max + ' = ' + (3 * max) + ' places pour ' + N + ' étudiants.');
-          if (3 * min > N) throw new Error('Minimum impossible : 3 × ' + min + ' = ' + (3 * min) + " dépasse l'effectif de " + N + '.');
+          var B = BR.length;
+          if (B * max < N) throw new Error('Plafond insuffisant : ' + B + ' × ' + max + ' = ' + (B * max) + ' places pour ' + N + ' étudiants.');
+          if (B * min > N) throw new Error('Minimum impossible : ' + B + ' × ' + min + ' = ' + (B * min) + " dépasse l'effectif de " + N + '.');
           var before = db.min + ' / ' + db.max;
           db.min = min; db.max = max; unstale(['MIN_SEATS', 'MAX_SEATS']);
           return write('REGLES', 'Minimum et maximum : ' + before + ' → ' + min + ' / ' + max, 'Règles appliquées : au plus ' + max + ' et au moins ' + min + ' étudiants par filière. Les projections des étudiants changeront à leur prochaine actualisation.');
@@ -3065,7 +3373,7 @@
         adminSetChoicesFor: function (o) {
           var r = reason(o.reason); notPublished();
           var k = need(o.name), x = students[k];
-          if (!Array.isArray(o.choices) || o.choices.length !== 3 || o.choices.some(function (b, i) { return BR.indexOf(b) === -1 || o.choices.indexOf(b) !== i; })) throw new Error('Classez les 3 filières (' + BR.join(', ') + '), chacune une seule fois.');
+          if (!Array.isArray(o.choices) || o.choices.length !== BR.length || o.choices.some(function (b, i) { return BR.indexOf(b) === -1 || o.choices.indexOf(b) !== i; })) throw new Error('Classez les ' + BR.length + ' filières (' + BR.join(', ') + '), chacune une seule fois.');
           if (same(x.choices, o.choices)) return write('CHOIX_ADMIN', null, 'Les choix de ' + x.name + " sont déjà ceux-ci : rien n'a changé.");
           var before = x.choices ? x.choices.join(' > ') : 'aucun choix';
           x.choices = o.choices.slice(); x.savedAt = Date.now();
@@ -3091,14 +3399,17 @@
           if (a.unresolvedTies && !ack.ties) throw new Error(a.unresolvedTies + ' égalité(s) décisive(s) non départagée(s) : confirmez que vous voulez figer quand même.');
           var sheet = 'Affectation_' + msToLocal(Date.now()).replace(/-/g, '').replace(' ', '_').replace(':', '');
           if (db.frozen.some(function (f) { return f.sheet === sheet; })) throw new Error('Une affectation a déjà été figée à cette minute (' + sheet + ') : réessayez dans une minute.');
-          db.frozen.unshift({ sheet: sheet, at: iso(Date.now()), by: ADMIN, exists: true, snapshot: snapshotOf(a) });
+          db.frozen.unshift({ sheet: sheet, at: iso(Date.now()), by: ADMIN, exists: true, snapshot: snapshotOf(a), branches: BR.slice() });
           db.frozen = db.frozen.slice(0, 10);
           return write('FIGER', sheet + ' — ' + BR.map(function (b) { return b + ' ' + a.counts[b]; }).join(', '), 'Affectation figée dans la feuille « ' + sheet + ' ».', { sheet: sheet });
         },
         adminPublishResults: function (o) {
           if (!o || o.confirm !== 'PUBLIER') throw new Error('Tapez PUBLIER pour confirmer la publication.');
           if (!lockInfo().baseLocked) throw new Error("Clôturez d'abord les choix (verrou ou date limite dépassée) avant de publier.");
-          if (!db.frozen.some(function (f) { return f.sheet === o.sheet; })) throw new Error('Cette feuille ne fait pas partie des affectations figées.');
+          var fz = db.frozen.filter(function (f) { return f.sheet === o.sheet; })[0];
+          if (!fz) throw new Error('Cette feuille ne fait pas partie des affectations figées.');
+          var gone = (fz.branches || DEFAULT_BR).filter(function (b) { return BR.indexOf(b) === -1; });
+          if (gone.length) throw new Error('Cette affectation a été figée avec des spécialités qui ne sont plus dans la liste (' + gone.join(', ') + ') : figez-en une nouvelle.');
           db.published = { sheet: o.sheet, at: iso(Date.now()), by: ADMIN };
           return write('PUBLIER', 'Feuille publiée : ' + o.sheet, 'Résultats publiés : chaque étudiant voit désormais sa filière officielle.');
         },
@@ -3106,6 +3417,62 @@
           if (!db.published) throw new Error("Aucun résultat n'est publié.");
           var s = db.published.sheet; db.published = null;
           return write('DEPUBLIER', 'Feuille dépubliée : ' + s, 'Résultats dépubliés : les étudiants ne voient plus de résultat officiel.');
+        },
+        adminSetProgram: function (o) {
+          o = o || {};
+          var name = String(o.name || '').replace(/\s+/g, ' ').trim(), size = Number(o.classSize);
+          if (!name) throw new Error('Indiquez le nom de la formation (par exemple « CI2 RST »).');
+          if (!(size >= 1 && size <= 999 && Math.floor(size) === size)) throw new Error("L'effectif attendu doit être un nombre entier entre 1 et 999.");
+          if (!Array.isArray(o.base) || o.base.join('\n') !== BR.join('\n')) throw new Error('La liste des spécialités a changé entre-temps (autre onglet ou autre administrateur) : rechargez la page.');
+          var items = (o.branches || []).map(function (it) { return { from: it.from || null, name: String(it.name || '').replace(/\s+/g, ' ').trim() }; });
+          var names = items.map(function (it) { return it.name; }), keys = {};
+          if (names.length < 2) throw new Error('Liste des spécialités refusée : il faut au moins 2 spécialités.');
+          if (names.length > 4) throw new Error('Liste des spécialités refusée : 4 spécialités au plus.');
+          names.forEach(function (n) {
+            if (!n) throw new Error('Liste des spécialités refusée : nom vide.');
+            if (/^[=+\-@]/.test(n)) throw new Error('Liste des spécialités refusée : « ' + n + ' » ne peut pas commencer par =, +, - ou @.');
+            if (keys[branchKey(n)]) throw new Error('Liste des spécialités refusée : « ' + n + ' » apparaît deux fois.');
+            keys[branchKey(n)] = true;
+          });
+          var kept = {};
+          items.forEach(function (it) { if (it.from) kept[it.from] = true; });
+          items.forEach(function (it) { if (it.from) return; BR.forEach(function (b) { if (!it.from && !kept[b] && branchKey(b) === branchKey(it.name)) { it.from = b; kept[b] = true; } }); });
+          var rename = {}, removed = BR.filter(function (b) { return !kept[b]; }), added = items.filter(function (it) { return !it.from; }).map(function (it) { return it.name; });
+          items.forEach(function (it) { if (it.from && it.from !== it.name) rename[it.from] = it.name; });
+          var changedList = names.join('\n') !== BR.join('\n');
+          if (changedList) {
+            notPublished();
+            var hit = Object.keys(db.forced).filter(function (n) { return removed.indexOf(db.forced[n].branch) !== -1; });
+            if (hit.length) throw new Error('Des affectations imposées concernent une spécialité retirée : retirez-les d\'abord.');
+            var N = students.length;
+            if (names.length * db.max < N) throw new Error('Avec ' + names.length + ' spécialités et un plafond de ' + db.max + ', il n’y aurait que ' + (names.length * db.max) + ' places pour ' + N + " étudiants : relevez d'abord le plafond (Règles de répartition).");
+            if (names.length * db.min > N) throw new Error('Avec ' + names.length + ' spécialités et un minimum de ' + db.min + ', il faudrait au moins ' + (names.length * db.min) + ' étudiants (' + N + " inscrits) : baissez d'abord le minimum (Règles de répartition).");
+          }
+          var migrate = function (c) { return c.filter(function (b) { return removed.indexOf(b) === -1; }).map(function (b) { return rename[b] || b; }).concat(added); };
+          var updated = 0;
+          if (changedList) {
+            students.forEach(function (x) {
+              if (x.pref) x.pref = migrate(x.pref);
+              if (!x.choices) return;
+              x.choices = migrate(x.choices);
+              if (removed.length || added.length) { updated++; history.push({ at: Date.now(), name: x.name, choices: x.choices.slice(), source: 'SPECIALITES', author: ADMIN }); }
+            });
+            history.forEach(function (hh) { hh.choices = hh.choices.map(function (b) { return rename[b] || b; }); });
+            Object.keys(db.forced).forEach(function (n) { var f = db.forced[n]; if (rename[f.branch]) f.branch = rename[f.branch]; });
+          }
+          var parts = [];
+          if (name !== PROGRAM.name) parts.push('formation « ' + PROGRAM.name + ' » → « ' + name + ' »');
+          Object.keys(rename).forEach(function (b) { parts.push('« ' + b + ' » renommée « ' + rename[b] + ' »'); });
+          added.forEach(function (b) { parts.push('« ' + b + ' » ajoutée'); });
+          removed.forEach(function (b) { parts.push('« ' + b + ' » retirée'); });
+          if (changedList && !added.length && !removed.length && !Object.keys(rename).length) parts.push('ordre des spécialités modifié');
+          if (size !== PROGRAM.classSize) parts.push('effectif attendu ' + PROGRAM.classSize + ' → ' + size);
+          PROGRAM.name = name; PROGRAM.classSize = size; BR = names;
+          if (!parts.length) return write('FORMATION', null, 'Aucune modification.');
+          var notice = capitalize(parts.join(' ; ')) + '.';
+          if (updated) notice += ' ' + plural(updated, 'classement enregistré mis à jour', 'classements enregistrés mis à jour') + (added.length ? ' (' + added.join(', ') + ' en dernier choix)' : '') + '.' +
+            (lockInfo().locked ? ' Les choix sont clos : rouvrez-les si les étudiants doivent pouvoir revoir leur classement.' : ' Les étudiants peuvent revoir leur classement.');
+          return write('FORMATION', capitalize(parts.join(' ; ')) + (changedList ? ' — liste : ' + names.join(', ') : '') + (updated ? ' — ' + plural(updated, 'classement mis à jour', 'classements mis à jour') : ''), notice);
         },
         adminCleanSettings: function () {
           var keys = db.staleProps.slice();

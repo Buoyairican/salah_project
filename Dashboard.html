@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Affectation de Spécialité - RST</title>
+  <title>Affectation de Spécialité</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Google Fonts -->
@@ -45,7 +45,7 @@
           <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14l9-5-9-5-9 5 9 5z"></path><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"></path><path d="M12 14v6"></path></svg>
         </div>
         <div class="min-w-0">
-          <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-200/80 truncate">Université Ibn Tofail · CI2 RST</div>
+          <div id="programLabel" class="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-200/80 truncate">Université Ibn Tofail</div>
           <div class="text-base sm:text-lg font-semibold leading-tight truncate">Choix de la spécialité</div>
         </div>
       </div>
@@ -192,9 +192,11 @@
             <h2 class="text-base sm:text-lg font-semibold text-slate-900">Vos préférences</h2>
           </div>
           <div class="px-5 sm:px-6 py-5">
-            <p class="text-sm text-slate-500 mb-5">Classez les 3 filières, de la plus souhaitée à la moins souhaitée. Chaque filière ne peut être choisie qu'une fois : pour changer l'ordre, appuyez d'abord sur «&nbsp;Effacer&nbsp;».</p>
+            <p class="text-sm text-slate-500 mb-5">Classez les <span id="branchCount">3</span> filières, de la plus souhaitée à la moins souhaitée. Chaque filière ne peut être choisie qu'une fois : pour changer l'ordre, appuyez d'abord sur «&nbsp;Effacer&nbsp;».</p>
 
             <form id="preferencesForm" class="space-y-4" novalidate>
+              <!-- [V2] Une liste par spécialité : reconstruites si le nombre de spécialités change -->
+              <div id="choiceFields" class="space-y-4">
               <div>
                 <label for="choice1" class="block text-sm font-medium text-slate-700 mb-1.5">1er choix</label>
                 <select id="choice1" class="choice-select w-full border border-slate-300 rounded-lg px-3 py-3 text-base text-slate-800 bg-white shadow-sm focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none transition-all"></select>
@@ -207,10 +209,11 @@
                 <label for="choice3" class="block text-sm font-medium text-slate-700 mb-1.5">3ème choix</label>
                 <select id="choice3" class="choice-select w-full border border-slate-300 rounded-lg px-3 py-3 text-base text-slate-800 bg-white shadow-sm focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none transition-all"></select>
               </div>
+              </div>
 
               <div class="flex items-start justify-between gap-3">
                 <p id="selectionStatus" class="text-xs min-h-[1rem]"></p>
-                <button type="button" id="clearBtn" class="shrink-0 text-xs font-semibold text-blue-700 hover:underline" title="Vider les 3 listes pour changer l'ordre">Effacer</button>
+                <button type="button" id="clearBtn" class="shrink-0 text-xs font-semibold text-blue-700 hover:underline" title="Vider les listes pour changer l'ordre">Effacer</button>
               </div>
 
               <div class="pt-1 flex flex-col gap-3">
@@ -277,7 +280,7 @@
             <div class="overflow-x-auto rounded-lg border border-slate-200">
               <table class="w-full text-sm text-left">
                 <thead class="text-xs text-slate-500 uppercase tracking-wide bg-slate-50 border-b border-slate-200">
-                  <tr>
+                  <tr id="statsHeadRow">
                     <th scope="col" class="px-2.5 sm:px-4 py-3 font-semibold text-slate-600">Filière</th>
                     <th scope="col" class="px-2.5 sm:px-4 py-3 font-semibold bg-blue-50/60 text-blue-800 border-l border-slate-200">1er choix</th>
                     <th scope="col" class="px-2.5 sm:px-4 py-3 font-semibold text-slate-500">2ème choix</th>
@@ -294,10 +297,25 @@
       </div>
     </main>
 
-    <footer class="mt-10 border-t border-slate-200 pt-5 text-xs text-slate-500 flex flex-col sm:flex-row gap-1 sm:justify-between">
-      <span>Université Ibn Tofail · Cycle ingénieur CI2 RST · Affectation des spécialités</span>
-      <span>Une question ? Adressez-vous à la coordination de la filière.</span>
+    <footer class="mt-10 border-t border-slate-200 pt-5 text-xs text-slate-500">
+      <div class="flex flex-col sm:flex-row gap-1 sm:justify-between">
+        <span id="footerProgram">Université Ibn Tofail · Affectation des spécialités</span>
+        <span>Une question ? Adressez-vous à la coordination de la filière.</span>
+      </div>
+      <!-- [V2] Signature de l'équipe de conception (fixe, indépendante de la formation) -->
+      <p class="mt-4 flex justify-center">
+        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm">
+          <svg class="w-3.5 h-3.5 text-blue-700" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+          Conçu et développé par les étudiants de la filière RST
+        </span>
+      </p>
     </footer>
+  </div>
+
+  <!-- [V2] Filigrane permanent (grands écrans, dans la marge : ne masque jamais le contenu) -->
+  <div class="hidden 2xl:flex fixed bottom-4 right-4 z-10 pointer-events-none select-none items-center gap-1.5 rounded-full bg-[#0b1f3a]/85 px-3 py-1.5 text-[11px] font-medium text-white/90 shadow-lg" aria-hidden="true">
+    <svg class="w-3.5 h-3.5 text-sky-300" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+    Réalisé par les étudiants RST
   </div>
 
   <script>
@@ -312,8 +330,9 @@
     // [V2] Aucune liste de secours : les noms des filières viennent toujours du serveur
     var DEFAULT_BRANCHES = [];
     // [V2] Couleur de chaque filière, dans l'ordre renvoyé par le serveur (comme l'interface de gestion)
-    var BRANCH_DOTS = ['bg-violet-500', 'bg-sky-500', 'bg-emerald-500'];
-    var RANK_LABELS = ['1er choix', '2ème choix', '3ème choix'];
+    var BRANCH_DOTS = ['bg-violet-500', 'bg-sky-500', 'bg-emerald-500', 'bg-amber-500'];
+    // [V2] Autant de rangs que de filières (i à partir de 0)
+    function rankLabel(i) { return i === 0 ? '1er choix' : (i + 1) + 'ème choix'; }
     var REASON_LABELS = { CAPACITY: '1er choix complet', QUOTA: "quota minimum d'une autre filière" };
     var STATUS_UI = {
       NO_CHOICES:       { label: 'Aucun choix',   box: 'bg-slate-50 border-slate-200',   title: 'text-slate-800',  pill: 'bg-slate-200 text-slate-700' },
@@ -436,6 +455,7 @@
     var noticeTimer = null;
 
     var selects = Array.prototype.slice.call(document.querySelectorAll('.choice-select'));
+    var SELECT_CLASS = selects[0].className; // [V2] style des listes recréées
     var previewBtn = $('previewBtn');
     var saveBtn = $('saveBtn');
 
@@ -447,13 +467,13 @@
     function isLocked() { return isOk() && (state.locked === true || deadlinePassed()); }
     function getBranches() {
       var b = isOk() && state.rules && state.rules.branches;
-      return (Array.isArray(b) && b.length >= 3) ? b.map(String) : DEFAULT_BRANCHES.slice();
+      return (Array.isArray(b) && b.length >= 2) ? b.map(String) : DEFAULT_BRANCHES.slice();
     }
     // Les choix de la projection actuellement à l'écran (pour le polling)
     function shownChoices() {
       if (!isOk() || !state.projection || state.projection.status === 'NO_CHOICES') return null;
       var c = state.projection.choices;
-      return (Array.isArray(c) && c.length === 3) ? c.slice() : null;
+      return (Array.isArray(c) && c.length === getBranches().length) ? c.slice() : null;
     }
 
     // =====================================================================
@@ -691,7 +711,15 @@
     // =====================================================================
     // Rendu
     // =====================================================================
+    // [V2] Nom de la formation (envoyé par le serveur avec chaque état)
+    function renderProgram() {
+      var name = state && state.program && typeof state.program.name === 'string' ? state.program.name : '';
+      $('programLabel').textContent = 'Université Ibn Tofail' + (name ? ' · ' + name : '');
+      $('footerProgram').textContent = 'Université Ibn Tofail' + (name ? ' · ' + name : '') + ' · Affectation des spécialités';
+    }
+
     function render() {
+      renderProgram(); // [V2]
       show($('bootView'), false);
       show($('bootError'), false);
       // [V2] Annonce et résultat officiel : seulement dans la vue étudiant ; compte administrateur à part
@@ -723,8 +751,12 @@
         restoreDropdowns(state.savedChoices, branches);
         dropdownsReady = true;
       } else if (branches.join('|') !== branchesKey) {
-        buildOptions(branches);                // garde les valeurs déjà choisies
+        // [V2] Liste modifiée par la coordination : garde les valeurs encore valables, sinon reprend le classement enregistré
+        var resized = branches.length !== selects.length;
+        buildOptions(branches);
+        if (resized || getSelection().some(function (v) { return !v; })) restoreDropdowns(state.savedChoices, branches);
       }
+      $('branchCount').textContent = String(branches.length);
       deadlineFired = deadlinePassed();     // déjà verrouillé par le serveur : pas de bascule à déclencher
 
       renderAnnouncement(); // [V2]
@@ -820,7 +852,7 @@
         $('officialIcon').className = 'w-14 h-14 shrink-0 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center';
         $('officialTitle').textContent = 'Vous êtes affecté(e) à ' + o.branch;
         $('officialText').textContent = 'Affectation définitive publiée par la coordination' + (at !== null ? ' ' + fmtShort(at) : '') + '.';
-        rank.textContent = k ? 'Votre ' + RANK_LABELS[k - 1] : '';
+        rank.textContent = k ? 'Votre ' + rankLabel(k - 1) : '';
         show(rank, !!k);
       } else {
         card.className = 'mb-6 overflow-hidden rounded-2xl border border-amber-300 bg-white shadow-sm';
@@ -919,7 +951,7 @@
       clear(box);
       box.className = 'rounded-xl p-4 sm:p-5 border transition-colors ' + ui.box;
 
-      var hasChoices = p.status !== 'NO_CHOICES' && Array.isArray(p.choices) && p.choices.length === 3;
+      var hasChoices = p.status !== 'NO_CHOICES' && Array.isArray(p.choices) && p.choices.length === getBranches().length;
 
       // En-tête : statut + enregistré / non enregistré
       var head = el('div', 'flex flex-wrap items-center justify-between gap-2 mb-3');
@@ -941,7 +973,7 @@
       if (p.status === 'NO_CHOICES') {
         title.textContent = 'Aucun choix à projeter';
         box.appendChild(title);
-        box.appendChild(el('p', 'text-sm text-slate-700 mb-2', "Classez les 3 filières à l'étape 1, puis appuyez sur « Prévisualiser l'affectation » pour voir où votre note vous place."));
+        box.appendChild(el('p', 'text-sm text-slate-700 mb-2', 'Classez les ' + getBranches().length + " filières à l'étape 1, puis appuyez sur « Prévisualiser l'affectation » pour voir où votre note vous place."));
       } else if (p.status === 'SECURE') {
         title.textContent = 'Projeté pour : ' + best;
         box.appendChild(title);
@@ -1047,16 +1079,29 @@
       var tbody = $('statsTableBody');
       clear(tbody);
       var stats = state.stats || {};
-      getBranches().forEach(function (b) {
+      var branches = getBranches();
+      // [V2] Une colonne par rang de choix
+      var head = $('statsHeadRow');
+      clear(head);
+      var first = el('th', 'px-2.5 sm:px-4 py-3 font-semibold text-slate-600', 'Filière');
+      first.setAttribute('scope', 'col');
+      head.appendChild(first);
+      branches.forEach(function (b, i) {
+        var th = el('th', 'px-2.5 sm:px-4 py-3 font-semibold ' + (i === 0 ? 'bg-blue-50/60 text-blue-800 border-l border-slate-200' : 'text-slate-500'), rankLabel(i));
+        th.setAttribute('scope', 'col');
+        head.appendChild(th);
+      });
+      branches.forEach(function (b, bi) {
         var s = stats[b] || {};
         var tr = el('tr', 'bg-white hover:bg-slate-50 transition-colors');
         var name = el('td', 'px-2.5 sm:px-4 py-3 font-medium text-slate-900 border-r border-slate-100'); // [V2] pastille
-        append(name, el('span', 'inline-block w-2 h-2 rounded-full mr-2 align-middle ' + BRANCH_DOTS[getBranches().indexOf(b) % BRANCH_DOTS.length]), b);
-        append(tr,
-          name,
-          el('td', 'px-2.5 sm:px-4 py-3 font-bold bg-blue-50/30 text-blue-900 border-r border-slate-100 tabular', fmtInt(num(s.c1) === null ? 0 : s.c1)),
-          el('td', 'px-2.5 sm:px-4 py-3 text-slate-600 border-r border-slate-100 tabular', fmtInt(num(s.c2) === null ? 0 : s.c2)),
-          el('td', 'px-2.5 sm:px-4 py-3 text-slate-600 tabular', fmtInt(num(s.c3) === null ? 0 : s.c3)));
+        append(name, el('span', 'inline-block w-2 h-2 rounded-full mr-2 align-middle ' + BRANCH_DOTS[bi % BRANCH_DOTS.length]), b);
+        tr.appendChild(name);
+        branches.forEach(function (x, i) {
+          var v = num(s['c' + (i + 1)]);
+          var cls = i === 0 ? 'font-bold bg-blue-50/30 text-blue-900' : 'text-slate-600';
+          tr.appendChild(el('td', 'px-2.5 sm:px-4 py-3 tabular ' + cls + (i < branches.length - 1 ? ' border-r border-slate-100' : ''), fmtInt(v === null ? 0 : v)));
+        });
         tbody.appendChild(tr);
       });
 
@@ -1070,17 +1115,41 @@
       var rules = $('rulesText');
       clear(rules);
       if (min !== null && max !== null) {
-        // [V2] Le plafond est la règle déterminante (le minimum ne joue que si N − 2 × max < min)
+        // [V2] Le plafond est la règle déterminante (le minimum ne joue que si N − (n − 1) × max < min)
+        var others = (branches.length - 1) * max;
         append(rules, el('strong', 'font-semibold text-slate-900', 'Règle des places : '),
           'chaque filière accueille au plus ' + max + ' étudiants (plafond strict) et au moins ' + min + '.' +
-          (N !== null && N - 2 * max > min ? ' Avec ' + N + ' étudiants, chaque filière en reçoit donc au moins ' + (N - 2 * max) + " : c'est le plafond qui compte." : ''));
+          (N !== null && N - others > min ? ' Avec ' + N + ' étudiants, chaque filière en reçoit donc au moins ' + (N - others) + " : c'est le plafond qui compte." : ''));
       }
     }
 
     // =====================================================================
     // Listes déroulantes
     // =====================================================================
+    // [V2] Une liste déroulante par filière (choice1..choiceN), recréées si leur nombre change
+    function ensureChoiceFields(n) {
+      if (n < 2 || selects.length === n) return; // liste pas encore reçue : on garde les listes en place
+      var host = $('choiceFields');
+      var focusedIdx = selects.indexOf(document.activeElement);
+      clear(host);
+      selects = [];
+      for (var i = 0; i < n; i++) {
+        var wrap = el('div');
+        var label = el('label', 'block text-sm font-medium text-slate-700 mb-1.5', rankLabel(i));
+        label.setAttribute('for', 'choice' + (i + 1));
+        var sel = document.createElement('select');
+        sel.id = 'choice' + (i + 1);
+        sel.className = SELECT_CLASS;
+        bindSelect(sel);
+        append(wrap, label, sel);
+        host.appendChild(wrap);
+        selects.push(sel);
+      }
+      if (focusedIdx !== -1 && selects[Math.min(focusedIdx, n - 1)]) selects[Math.min(focusedIdx, n - 1)].focus();
+    }
+
     function buildOptions(branches) {
+      ensureChoiceFields(branches.length);
       selects.forEach(function (sel) {
         var keep = sel.value;
         clear(sel);
@@ -1115,7 +1184,7 @@
           var usedAt = -1;
           vals.forEach(function (v, j) { if (j !== i && v === o.value) usedAt = j; });
           o.disabled = usedAt !== -1;
-          o.textContent = usedAt !== -1 ? o.value + ' (déjà en ' + RANK_LABELS[usedAt] + ')' : o.value;
+          o.textContent = usedAt !== -1 ? o.value + ' (déjà en ' + rankLabel(usedAt) + ')' : o.value;
         });
       });
     }
@@ -1126,7 +1195,7 @@
       var v = getSelection();
       var branches = getBranches();
       selects.forEach(function (s) { if (s.value) s.removeAttribute('aria-invalid'); else s.setAttribute('aria-invalid', 'true'); });
-      if (v.some(function (x) { return !x; })) return { error: 'Choisissez une filière pour chacun des 3 rangs.' };
+      if (v.some(function (x) { return !x; })) return { error: 'Choisissez une filière pour chacun des ' + v.length + ' rangs.' };
       var unique = v.filter(function (x, i) { return v.indexOf(x) === i; });
       if (unique.length !== v.length) return { error: 'Chaque filière ne peut apparaître qu’une seule fois dans votre classement.' };
       if (v.some(function (x) { return branches.indexOf(x) === -1; })) return { error: 'Filière inconnue. Actualisez la page.' };
@@ -1156,7 +1225,7 @@
       node.textContent = text;
     }
 
-    selects.forEach(function (sel) {
+    function bindSelect(sel) {
       sel.addEventListener('change', function () {
         updateDropdownOptions();
         sel.removeAttribute('aria-invalid');
@@ -1164,7 +1233,8 @@
         hideSaveNotice();
         updateSelectionStatus();
       });
-    });
+    }
+    selects.forEach(bindSelect);
 
     // =====================================================================
     // Actions de l'étudiant
@@ -1232,6 +1302,7 @@
     //   &skew=<minutes>    décale l'horloge du faux serveur (horloge du téléphone fausse)
     //   &fail=load | poll | preview | save   simule une erreur serveur
     //   &poll=<secondes>   intervalle de polling raccourci   &delay=<ms> latence
+    //   &specialites=4     [V2] quatre spécialités   &formation=<nom>  nom de la formation
     // =====================================================================
     function createMock() {
       var q = new URLSearchParams(location.search);
@@ -1253,8 +1324,10 @@
       else deadline = t0 + (OFFSETS[dlMode] !== undefined ? OFFSETS[dlMode] : OFFSETS.future);
 
       // [V2] Mêmes filières, règles (12 / 26) et effectif (70) que le serveur ; liste officielle complète
-      var CY = 'Cybersécurité', RM = 'Réseaux Mobiles', SU = 'Systèmes Ubiquitaires';
-      var rules = { branches: [CY, RM, SU], minSeats: 12, maxSeats: 26, classSize: 70 };
+      var CY = 'Cybersécurité', RM = 'Réseaux Mobiles', SU = 'Systèmes Ubiquitaires', IA = 'Intelligence Artificielle';
+      var four = q.get('specialites') === '4'; // [V2]
+      var rules = { branches: four ? [CY, RM, SU, IA] : [CY, RM, SU], minSeats: 12, maxSeats: four ? 20 : 26, classSize: 70 };
+      var PROGRAM = { name: q.get('formation') || 'CI2 RST' }; // [V2]
       var COVER = {
         SECURE:           { gradesSubmitted: 70, undecidedAbove: 0, tied: 0 },
         FALLBACK_SECURED: { gradesSubmitted: 70, undecidedAbove: 0, tied: 0 },
@@ -1269,10 +1342,14 @@
       others[CY] = { c1: 19, c2: 9, c3: 6 };
       others[RM] = { c1: 8, c2: 15, c3: 11 };
       others[SU] = { c1: 7, c2: 10, c3: 17 };
+      if (four) {
+        others[CY].c1 = 14; others[CY].c4 = 4; others[RM].c4 = 9; others[SU].c4 = 12;
+        others[IA] = { c1: 10, c2: 7, c3: 10, c4: 8 };
+      }
       var db = {
         hasGrade: sc !== 'NO_GRADE',
         grade: sc === 'VULNERABLE' ? 14.5 : 15.25,
-        saved: (sc === 'NO_CHOICES' || sc === 'NO_GRADE') ? null : [CY, SU, RM],
+        saved: (sc === 'NO_CHOICES' || sc === 'NO_GRADE') ? null : (four ? [CY, IA, SU, RM] : [CY, SU, RM]),
         savedAt: new Date(t0 - 26 * 3600 * 1000).toISOString(),
         adminLock: q.get('locked') === '1' || sc === 'PUBLISHED',
         calls: 0
@@ -1325,14 +1402,14 @@
       }
 
       function buildState(choices) {
-        if (sc === 'ADMIN') return { access: 'ADMIN', adminUrl: ADMIN_URL }; // [V2]
-        if (pageClosed()) return { access: 'CLOSED', message: 'Vous pourrez bientôt choisir vos options de spécialité sur cette page.', announcement: ANNOUNCEMENT, serverTime: new Date(now()).toISOString(), timeZone: 'Africa/Casablanca' }; // [V2]
+        if (sc === 'ADMIN') return { access: 'ADMIN', adminUrl: ADMIN_URL, program: PROGRAM }; // [V2]
+        if (pageClosed()) return { access: 'CLOSED', message: 'Vous pourrez bientôt choisir vos options de spécialité sur cette page.', program: PROGRAM, announcement: ANNOUNCEMENT, serverTime: new Date(now()).toISOString(), timeZone: 'Africa/Casablanca' }; // [V2]
         if (!db.hasGrade) {
           return { access: 'NO_GRADE', formUrl: FORM_URL,
             message: "Aucune note n'est enregistrée pour votre compte. Soumettez d'abord votre note via le formulaire : le tableau de bord sera disponible ensuite." };
         }
         var stats = JSON.parse(JSON.stringify(others));
-        if (db.saved) { stats[db.saved[0]].c1++; stats[db.saved[1]].c2++; stats[db.saved[2]].c3++; }
+        if (db.saved) db.saved.forEach(function (b, k) { stats[b]['c' + (k + 1)]++; });
         var cov = COVER[sc];
         var choicesSaved = rules.branches.reduce(function (n, b) { return n + stats[b].c1; }, 0); // [V2]
         return {
@@ -1353,14 +1430,15 @@
           },
           projection: project(choices || db.saved),
           announcement: ANNOUNCEMENT, // [V2]
-          official: OFFICIAL          // [V2]
+          official: OFFICIAL,         // [V2]
+          program: PROGRAM            // [V2]
         };
       }
 
       function validate(ch) {
-        var ok = Array.isArray(ch) && ch.length === 3 &&
+        var ok = Array.isArray(ch) && ch.length === rules.branches.length &&
           ch.every(function (b, i) { return rules.branches.indexOf(b) !== -1 && ch.indexOf(b) === i; });
-        if (!ok) throw new Error('Choix invalides : classez les 3 filières, chacune une seule fois.');
+        if (!ok) throw new Error('Choix invalides : classez les ' + rules.branches.length + ' filières, chacune une seule fois.');
       }
 
       // Bandeau du mode démo, avec des liens vers chaque scénario

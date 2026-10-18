@@ -1,4 +1,4 @@
-# CI2 RST specialty assignment — V2 deployment guide
+# Specialty assignment (built by CI2 RST, adaptable to any major) — V2 deployment guide
 
 This release adds a **management interface** for the coordinator (tomader.mazri@uit.ac.ma) to the existing Apps Script web app, and refreshes the student page. When the coordinator opens the usual web-app link, she lands on the management interface; students keep seeing the waiting page until she opens the student dashboard from that interface.
 
@@ -38,6 +38,7 @@ In the editor toolbar, choose the function **`setupSheets`** and click **Run**.
 - It creates, if missing: `Historique`, `Journal`, `Departage`, `Surcharges` (with headers) and writes **`Email`** in `Responses!C1` if that cell is empty.
 - It does **not** write any setting: an absent script property means its default (page closed, no deadline, no lock, 12 / 26, students without choices placed last, the administrator listed in the code). It **removes** properties left at their default value by an earlier version (for example `STUDENT_PAGE_OPEN=false`, `MIN_SEATS=12`), so no old value can stay fixed. Run it again after updating the code.
 - It never overwrites an existing sheet, header or property. Running it again logs *« Rien à faire : tout est déjà en place. »*
+- If `Preferences` does not have one choice column per specialty (only possible after editing `SPECIALTIES` by hand), it reshapes the sheet to the current list and says so. Use the interface instead (§7, *Using the tool for another major*): it converts the saved rankings properly.
 
 ## 4. Run `selfTest`
 
@@ -105,6 +106,26 @@ The bar under the header shows the campaign phase: *Préparation → Choix ouver
 | 8. Freeze | **Résultats officiels → 2** | Creates a sheet `Affectation_YYYYMMDD_HHmm` with rank, name, grade, choices, branch, choice rank, origin and a French comment — exactly what the interface shows. It is protected with a warning (you can still edit it by hand if the jury decides so). |
 | 9. Publish | **Résultats officiels → 3** | Pick the frozen sheet, type `PUBLIER`. Each student sees their official branch (read from that sheet). While published, re-opening choices, editing choices and forcing a branch are blocked (*« Dépubliez d'abord les résultats. »*). **Dépublier** undoes it. |
 
+### Using the tool for another major (*Formation & spécialités*)
+
+The tool was built for CI2 RST, but nothing in it is specific to RST any more. In **Formation & spécialités**, an administrator sets:
+
+- **Nom de la formation** (e.g. `CI2 GI`): shown in the header of both pages, the browser tab title, the “not on the list” message and the reminder e-mails.
+- **Effectif attendu**: the class size the *Étudiants chargés* check compares with (70 for RST).
+- **Spécialités proposées**: **2 to 4** names. Rename one in place, remove it with the bin icon (*Rétablir* undoes it before saving), or add one. Students always rank every specialty, so the student page shows one drop-down per specialty.
+
+Before saving, the page shows the effect on saved rankings, and the confirmation lists every change. On save, under the script lock:
+
+| Change | Saved rankings (`Preferences`) | `Historique` | `Surcharges` |
+|---|---|---|---|
+| Rename | Same position, new name | Renamed in every row | Renamed |
+| Add | New specialty placed **last** in every complete ranking | One `SPECIALITES` row per ranking changed | — |
+| Remove | Removed; the order of the others is kept | One `SPECIALITES` row per ranking changed | Refused while a forced assignment targets it |
+
+Saving is refused while results are published (only the name stays editable), when the list would make the rules impossible (e.g. 2 specialties × cap 26 < 70 students — change the rules first in *Simulation des règles*), or when another administrator changed the list in the meantime. Frozen `Affectation_` sheets are never rewritten; one frozen with an old list can no longer be published (freeze a new one). If the choices are closed when you add or remove a specialty, re-open them if students should be able to review their ranking.
+
+The footer of every page shows **“Conçu et développé par les étudiants de la filière RST”**. It is written in the code, so it stays whatever the course name.
+
 **About the rules.** With 70 students and a cap of 26 per branch, every branch necessarily gets at least 70 − 2 × 26 = **18** students, so the minimum of 12 never matters — **the cap decides**. Use **Simulation des règles** to try another cap (nothing is saved until you click *Appliquer ces règles*); it shows who would change branch.
 
 **Exports** (*Résultats officiels → Exports CSV*, and buttons on other pages) open directly in French Excel: UTF-8, `;` separator, decimal comma, grades rounded to 2 decimals and written in quotes (`"17,74"`), so an import that also splits on commas can no longer shift the columns. In **LibreOffice**, the Text Import dialog ticks Tab, Comma and Semicolon by default: tick **Semicolon only**, set **Language** to *French*, keep the string delimiter `"` and leave *Format quoted field as text* unticked, otherwise grades arrive as text. If your browser blocks the download inside the Apps Script page, use *Afficher le contenu* in the notification and copy it.
@@ -127,6 +148,9 @@ The bar under the header shows the campaign phase: *Préparation → Choix ouver
 | `FROZEN_SHEETS` | at least one allocation was frozen | none | Sheets deleted by hand are dropped from the list at the next freeze. |
 | `PUBLISHED_SHEET` | results are published | not published | Unpublishing deletes it. |
 | `PUBLIC_URL` | you add it by hand (`https://…`) | the web-app URL | Link used in reminder e-mails. |
+| `PROGRAM_NAME` | the course name differs from `CI2 RST` | `CI2 RST` | Set in *Formation & spécialités*. |
+| `SPECIALTIES` | the list differs from the 3 RST specialties (JSON array, e.g. `["A","B","C","D"]`) | Cybersécurité, Réseaux Mobiles, Systèmes Ubiquitaires | Set in *Formation & spécialités*, which also converts saved rankings. An unreadable value (not 2–4 distinct names) **locks the choices** and is flagged. |
+| `CLASS_SIZE` | the expected class size differs from 70 | 70 | Used by the *Étudiants chargés* check only. |
 
 *Qualité des données → Réglages enregistrés* lists the properties currently set, flags any that are useless (default value, empty or unreadable) and removes them in one click.
 
@@ -137,12 +161,12 @@ Prefer the interface over editing these by hand: it validates values and writes 
 | Sheet | Content | Written by |
 |---|---|---|
 | `Responses` | A `Nom`, B `Note`, **C `Email` (optional, new)** | You (official list) |
-| `Preferences` | One row per student (unchanged) | Students, admin |
-| `Historique` | Timestamp, Nom, 3 choices, Source (`ETUDIANT`/`ADMIN`), Auteur — one row per change | Script (append-only) |
+| `Preferences` | One row per student: Nom, `Choice_1`…`Choice_n` (one per specialty), Timestamp | Students, admin |
+| `Historique` | Timestamp, Nom, `Choice_1`…, Source (`ETUDIANT`/`ADMIN`/`SPECIALITES`), Auteur — one row per change. Never fewer choice columns than specialties; after a removal the extra column stays (old rows keep their data) | Script (append-only) |
 | `Journal` | Timestamp, Admin, Action, Détails | Script (append-only) |
 | `Departage` | Note, Rang, Nom, Raison, Admin, Timestamp | Interface |
 | `Surcharges` | Nom, Filière, Raison, Admin, Timestamp, Actif (`OUI`/`NON`) | Interface |
-| `Affectation_YYYYMMDD_HHmm` | One per freeze | Interface |
+| `Affectation_YYYYMMDD_HHmm` | One per freeze: Rang, Nom, Note, `Choix 1`…`Choix n`, Filière affectée, Rang du choix obtenu, Origine, Commentaire | Interface |
 
 **Origin codes** in exports and frozen sheets: `ALGO` merit order · `TIEBREAK` tie decided by the coordination · `MANUAL` forced assignment · `AUTO` no choices, placed automatically.
 
@@ -198,6 +222,8 @@ Open `Admin.html` or `Dashboard.html` directly in a browser: without `google.scr
 | *« Dépubliez d'abord les résultats. »* | Expected while results are published. Unpublish first (*Résultats officiels → 3*). |
 | A CSV opens with every column after `Note` shifted one place right | The file was exported before the CSV fix: its grades were unquoted and the import also split on commas (`17,74` → `17` \| `74`). Deploy the current code (new version) and export again; splitting lost leading zeros (`16,09` → `16` \| `9`), so don't repair old files by hand. With old files, import with *Semicolon* as the only separator. |
 | A student is listed under *Lignes écartées* | Empty name, duplicate name or unreadable grade on that line of `Responses`. The student cannot log in until it is fixed. |
+| Students get *« Erreur de lecture de la liste officielle »* on saving, and *Qualité des données* says *Feuille Preferences à remettre en forme* | `SPECIALTIES` was edited by hand to a different number of specialties. Open *Formation & spécialités*, check the list and save it (or run `setupSheets`). Rankings saved with the old count have to be redone. |
+| Choices are closed with *« liste des spécialités illisible »* | `SPECIALTIES` was edited by hand and is not 2–4 distinct names. Save the right list in *Formation & spécialités*. |
 | The admin sees the students' waiting message | Their address is not in `ADMIN_EMAILS` (check spelling), or they are signed in with another Google account. |
 
 ## 13. Assumptions and decisions
@@ -215,13 +241,16 @@ The requirements file ended after section 8; sections 9 (admin UI), 10 (mock), 1
 9. **Forced assignments beyond the cap** (possible only if the cap was lowered by hand) are ignored by the calculation and reported (*Qualité des données*, *Points d'attention*). `adminSetRules` refuses a cap below the number of forced assignments in a branch. The “would exceed the maximum” check counts forced assignments only — forcing someone into a branch filled by merit bumps its last merit admission, by design.
 10. **Bubble:** “last admitted” counts merit/tie-break admissions only; “first rejected” excludes forced students.
 11. **Freezing twice in the same minute** is refused (the sheet name would collide). Frozen sheets get a warning-only protection. Only the 10 newest are listed in `FROZEN_SHEETS`; older sheets are kept.
-12. **Reminders** are sent *outside* the script lock (sending dozens of e-mails would otherwise block student saves for many seconds); the journal row is written under the lock. They are refused when choices are closed. Plain text, sender name *Coordination CI2 RST*, reply-to the administrator.
+12. **Reminders** are sent *outside* the script lock (sending dozens of e-mails would otherwise block student saves for many seconds); the journal row is written under the lock. They are refused when choices are closed. Plain text, sender name *Coordination* + the course name (e.g. *Coordination CI2 RST*), reply-to the administrator.
 13. **`adminSetChoicesFor` with identical choices** is a no-op: nothing written, no journal row.
 14. **Published sheet deleted by hand:** students see no official result (rather than “you are missing from the list”), and the problem is logged.
 15. **Participation timeline:** hourly buckets when first saves span ≤ 48 h, daily otherwise. Saves made before V2 have no history, so their `Preferences` timestamp is used (that is the *last* save, an approximation).
 16. **Ambiguous names** (health) are detected heuristically: two names where every word of one appears in the other, among rows without an e-mail.
 17. **Extra response fields** beyond the contract (all JSON-safe, additive): `config.deadlineInvalid`, `config.studentUrl`, `results.frozen[].exists`, `roster[].email/reason/forcedReason/forcedBranch`, `attention.pending[].assigned/email`, `attention.ties[].stale/reason/by/at` and member `choiceRank/source/rank`, `health.invalidPreferences/staleOverrides/forcedOverflow/staleTieBreaks`, `badEmails[].why`, `adminExplainStudent().email/forced`, `history[].author`, `adminWhatIf().changed[].fromRank/toRank`, `adminTestEmail().isAdmin/domainOk`, `adminPreviewReminders().available/reason`, `adminSendReminders().sent/failed/skipped`.
 18. **Student page redesign.** The prompt says students should notice nothing beyond the section-11 additions; the owner explicitly asked for a more professional look, so the layout was restyled. All element IDs, behaviours (loading, preview, save, polling, deadline, lock) and texts other than those listed in §10 are unchanged. The dead `NO_GRADE` view was left alone.
+19. **Number of specialties: 2 to 4.** The projection explores every order in which undecided and tied students ahead could choose. Its worst case (everyone ahead undecided) takes about 0.03 s with 3 specialties, 0.2 s with 4 and 3 s with 5 on a laptop — slower on Google's servers, and every open student page refreshes each minute — so 5 or more is refused. With 3 specialties the calculation is unchanged (same 18,630-field equivalence).
+20. **Rankings are converted, never dropped.** Adding a specialty appends it to every complete ranking rather than invalidating it, so no student silently becomes “without choices”; the conversion is logged per student (`SPECIALITES`). A specialty removed and re-added under the same name (case and accents ignored) in one save counts as kept.
+21. **The RST credit is fixed.** It is a constant (`BUILT_BY_TEXT`) shown on every page, independent of `PROGRAM_NAME`.
 
 ## 14. How this release was tested
 
@@ -230,6 +259,7 @@ The code was exercised outside Google's runtime, in a Node.js emulation of the A
 - **Projection equivalence:** 30 random classes (36 to 70 students, many ties and undecided students) — the new `buildState_` returns exactly the same `projection`, `coverage`, `stats` and `rules` as the previous code: 18,630 fields compared, 0 differences.
 - **`selfTest`** passes, and its property (b) also holds on 25 other random seeds (1,600 students).
 - **201 assertions** on routing, access control (every `admin…` function refuses students and anonymous callers), each endpoint, the publication guards, CSV format (no unquoted decimal anywhere), e-mail matching, reminders and quota, journal paging, JSON-safety of every response, and absence of formulas in written cells.
+- **Formation & spécialités:** 93 server assertions (rename, add, remove, refusals, migration of `Preferences` / `Historique` / `Surcharges`, exports and frozen sheets with 4 columns, publication guards, hand-edited `SPECIALTIES`, cache invalidation, `selfTest` with 2 and 4 specialties, worst-case timing) and 52 browser assertions on both pages while the list changes under an open page.
 - **Both pages driven in Chromium** against the emulated server (not only their demo data): every tab, dialogs, tie-break, simulation, close → freeze → publish, export download, then the student's official result.
 
 It has **not** been run on Google's servers. Steps 4 and 6 above are the first real-environment checks; do them before opening the page to students.

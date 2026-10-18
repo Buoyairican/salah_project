@@ -3,23 +3,41 @@ const SHEET_NAME = 'Responses';          // Feuille officielle : Col A = Nom, Co
 const PREFERENCES_SHEET = 'Preferences'; // Choix en clair : Nom, Choice_1, Choice_2, Choice_3, Timestamp
 
 // --- Règles d'affectation ---
-const BRANCHES = ['Cybersécurité', 'Réseaux Mobiles', 'Systèmes Ubiquitaires'];
+// [V2] Spécialités par défaut (propriété SPECIALTIES absente). La liste en vigueur est chargée à chaque
+// lecture des propriétés (applyProgram_) : toute la logique lit BRANCHES, jamais cette constante.
+const DEFAULT_BRANCHES = ['Cybersécurité', 'Réseaux Mobiles', 'Systèmes Ubiquitaires'];
+let BRANCHES = DEFAULT_BRANCHES.slice(); // [V2] spécialités en vigueur pour cette exécution
 const MIN_SEATS = 12;  // minimum obligatoire par filière ([V2] valeur par défaut de la propriété MIN_SEATS)
-const CLASS_SIZE = 70; // effectif officiel de la promo CI2 RST
+const CLASS_SIZE = 70; // effectif officiel de la promo CI2 RST ([V2] défaut de la propriété CLASS_SIZE)
 const MAX_SEATS = 26;  // plafond maximal strict par filière fixé par la coordination ([V2] défaut de MAX_SEATS)
+
+// --- [V2] Formation : nom affiché (propriété PROGRAM_NAME) et bornes de la liste des spécialités ---
+const DEFAULT_PROGRAM_NAME = 'CI2 RST';
+const PROGRAM_NAME_MAX_LENGTH = 40;
+const BRANCH_NAME_MAX_LENGTH = 60;
+const MIN_BRANCHES = 2;
+const MAX_BRANCHES = 4; // projection au pire cas : 0,03 s à 3 filières, 0,2 s à 4, 3 s à 5 (trop lent pour la page étudiante)
+// [V2] Signature de l'équipe qui a conçu l'outil : fixe, indépendante du nom de la formation
+const BUILT_BY_TEXT = 'Conçu et développé par les étudiants de la filière RST';
+let PROGRAM = { name: DEFAULT_PROGRAM_NAME, classSize: CLASS_SIZE, branchesInvalid: false }; // [V2] cf. applyProgram_
 
 // --- Clôture des choix : Paramètres du projet > Propriétés du script ---
 const DEADLINE_PROPERTY = 'CHOICES_DEADLINE';
 const LOCKED_PROPERTY = 'CHOICES_LOCKED';
 
-const SNAPSHOT_CACHE_KEY = 'snapshot_v6'; // [V2] v6 : e-mail de chaque ligne + lignes écartées
+const SNAPSHOT_CACHE_KEY = 'snapshot_v7'; // [V2] v7 : + liste des spécialités avec laquelle il a été lu
 const SNAPSHOT_CACHE_SECONDS = 30;
 const SAVE_COOLDOWN_SECONDS = 5;
 const MAX_TIE_GROUP = 4;
 const LOCK_WAIT_MS = 10000;
 
-const NO_GRADE_MESSAGE = "Accès refusé : votre adresse institutionnelle ne correspond à aucun étudiant inscrit sur la liste officielle CI2 RST.";
-const INVALID_CHOICES_MESSAGE = 'Classez les 3 filières (' + BRANCHES.join(', ') + '), chacune une seule fois.';
+// [V2] Messages qui citent la formation ou les spécialités : fonctions (valeurs de l'exécution en cours)
+function noGradeMessage_() {
+  return 'Accès refusé : votre adresse institutionnelle ne correspond à aucun étudiant inscrit sur la liste officielle ' + PROGRAM.name + '.';
+}
+function invalidChoicesMessage_() {
+  return 'Classez les ' + BRANCHES.length + ' filières (' + BRANCHES.join(', ') + '), chacune une seule fois.';
+}
 const DESYNC_MESSAGE = "Erreur de lecture de la liste officielle. Veuillez contacter l'administrateur.";
 const LOCKED_MESSAGE = "Les choix sont clos : plus aucune modification n'est acceptée.";
 
@@ -36,6 +54,9 @@ const MIN_SEATS_PROPERTY = 'MIN_SEATS';
 const MAX_SEATS_PROPERTY = 'MAX_SEATS';
 const UNDECIDED_POLICY_PROPERTY = 'UNDECIDED_POLICY';
 const ANNOUNCEMENT_PROPERTY = 'ANNOUNCEMENT';
+const PROGRAM_NAME_PROPERTY = 'PROGRAM_NAME';
+const SPECIALTIES_PROPERTY = 'SPECIALTIES';
+const CLASS_SIZE_PROPERTY = 'CLASS_SIZE';
 const FROZEN_SHEETS_PROPERTY = 'FROZEN_SHEETS';
 const PUBLISHED_SHEET_PROPERTY = 'PUBLISHED_SHEET';
 const PUBLIC_URL_PROPERTY = 'PUBLIC_URL';
@@ -46,22 +67,20 @@ const TIEBREAK_SHEET = 'Departage';
 const OVERRIDES_SHEET = 'Surcharges';
 const ALLOCATION_SHEET_PREFIX = 'Affectation_';
 
+// [V2] Preferences et Historique ont une colonne par spécialité : en-têtes construits à la demande (sheetHeaders_)
 const SHEET_HEADERS = {
-  [PREFERENCES_SHEET]: ['Nom', 'Choice_1', 'Choice_2', 'Choice_3', 'Timestamp'],
-  [HISTORY_SHEET]: ['Timestamp', 'Nom', 'Choice_1', 'Choice_2', 'Choice_3', 'Source', 'Auteur'],
   [JOURNAL_SHEET]: ['Timestamp', 'Admin', 'Action', 'Détails'],
   [TIEBREAK_SHEET]: ['Note', 'Rang', 'Nom', 'Raison', 'Admin', 'Timestamp'],
   [OVERRIDES_SHEET]: ['Nom', 'Filière', 'Raison', 'Admin', 'Timestamp', 'Actif']
 };
 // Colonnes au format texte brut (évite qu'un « 12/26 » devienne une date)
 const SHEET_TEXT_COLUMNS = {
-  [HISTORY_SHEET]: [2, 3, 4, 5, 6, 7],
   [JOURNAL_SHEET]: [2, 3, 4],
   [TIEBREAK_SHEET]: [3, 4, 5],
   [OVERRIDES_SHEET]: [1, 2, 3, 4, 6]
 };
-const ALLOCATION_HEADERS = ['Rang', 'Nom', 'Note', 'Choix 1', 'Choix 2', 'Choix 3',
-  'Filière affectée', 'Rang du choix obtenu', 'Origine', 'Commentaire'];
+// [V2] Feuilles Affectation_ : Rang, Nom, Note, Choix 1..n, puis ces colonnes (allocationHeaders_)
+const ALLOCATION_TAIL_HEADERS = ['Filière affectée', 'Rang du choix obtenu', 'Origine', 'Commentaire'];
 
 const TALLY_CACHE_KEY = 'status_tally_v1';
 const TALLY_CACHE_SECONDS = 60;
@@ -74,11 +93,10 @@ const FROZEN_SHEETS_MAX = 10;
 const TIE_PERMUTATION_LIMIT = 5;
 const UNDECIDED_POLICIES = ['LAST', 'MANUAL'];
 const SOURCES = ['ALGO', 'TIEBREAK', 'MANUAL', 'AUTO'];
-const MAIL_SENDER_NAME = 'Coordination CI2 RST';
+// [V2] Historique : origine d'un classement (SPECIALITES = mis à jour après un changement de la liste)
+const HISTORY_SOURCES = ['ETUDIANT', 'ADMIN', 'SPECIALITES'];
 
-const APP_VERSION = 'V2.3 (2026-10-16)'; // [V2] affichée dans l'interface : vérifie que /exec sert la bonne version
-const PAGE_TITLE = 'Affectation de Spécialité - RST';
-const ADMIN_PAGE_TITLE = 'Gestion des affectations - RST';
+const APP_VERSION = 'V2.4 (2026-10-18)'; // [V2] affichée dans l'interface : vérifie que /exec sert la bonne version
 const WAITING_TEXT = 'Vous pourrez bientôt choisir vos options de spécialité sur cette page.';
 const ACCESS_DENIED_MESSAGE = 'Accès refusé.';
 const UNPUBLISH_FIRST_MESSAGE = "Dépubliez d'abord les résultats.";
@@ -98,7 +116,7 @@ function doGet(e) {
 
   if (isAdmin_(email, props)) {
     return HtmlService.createHtmlOutputFromFile('Admin')
-      .setTitle(ADMIN_PAGE_TITLE)
+      .setTitle('Gestion des affectations - ' + PROGRAM.name)
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
   }
 
@@ -114,7 +132,7 @@ function doGet(e) {
   // [V2] Les étudiants reçoivent toujours le Dashboard. Page fermée : il affiche la page d'attente
   // (texte inchangé + annonce) et se met à jour seul, dans les deux sens, à chaque actualisation.
   return HtmlService.createHtmlOutputFromFile('Dashboard')
-    .setTitle(PAGE_TITLE)
+    .setTitle('Affectation de Spécialité - ' + PROGRAM.name)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
@@ -126,8 +144,11 @@ function simplePage_(title, innerHtml) {
     '<main style="max-width:560px;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 1px 3px rgba(15,23,42,.06);overflow:hidden;">' +
     '<div style="height:6px;background:linear-gradient(90deg,#0b2545,#1d4ed8);"></div>' +
     '<div style="padding:32px 28px;text-align:center;">' +
-    '<div style="font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:#64748b;margin-bottom:16px;">Université Ibn Tofail · CI2 RST</div>' +
-    innerHtml + '</div></main></body></html>';
+    '<div style="font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:#64748b;margin-bottom:16px;">Université Ibn Tofail · ' + escapeHtml_(PROGRAM.name) + '</div>' +
+    innerHtml + '</div></main>' +
+    // [V2] Signature de l'équipe de conception (fixe)
+    '<p style="position:fixed;left:0;right:0;bottom:12px;margin:0;text-align:center;font-size:.72rem;color:#64748b;">' + escapeHtml_(BUILT_BY_TEXT) + '</p>' +
+    '</body></html>';
   return HtmlService.createHtmlOutput(html)
     .setTitle(title)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -208,7 +229,7 @@ function currentUserName_(snap, props) {
   // [V2] Colonne Email prioritaire, puis appariement par nom (resolveStudent_)
   const found = resolveStudent_(email, snap.rows);
   if (found.verdict !== 'OK') {
-    throw new Error(NO_GRADE_MESSAGE);
+    throw new Error(noGradeMessage_());
   }
   return found.matches[0];
 }
@@ -217,22 +238,42 @@ function getOrCreateSheet_(ss, name) {
   var sh = ss.getSheetByName(name);
   if (!sh) {
     sh = ss.insertSheet(name);
-    // [V2] En-têtes de toutes les feuilles gérées (Preferences : en-tête inchangé)
-    if (SHEET_HEADERS[name]) {
-      sh.appendRow(SHEET_HEADERS[name]);
+    // [V2] En-têtes de toutes les feuilles gérées (Preferences : même en-tête, une colonne par spécialité)
+    const headers = sheetHeaders_(name);
+    if (headers) {
+      sh.appendRow(headers);
       formatManagedSheet_(sh, name);
     }
   }
   return sh;
 }
 
+// [V2] Preferences : Nom, Choice_1..n, Timestamp ; Historique : Timestamp, Nom, Choice_1..n, Source, Auteur
+function choiceHeaders_(n) {
+  const out = [];
+  for (let k = 1; k <= n; k++) out.push('Choice_' + k);
+  return out;
+}
+
+function sheetHeaders_(name) {
+  if (name === PREFERENCES_SHEET) return ['Nom'].concat(choiceHeaders_(BRANCHES.length), ['Timestamp']);
+  if (name === HISTORY_SHEET) return ['Timestamp', 'Nom'].concat(choiceHeaders_(BRANCHES.length), ['Source', 'Auteur']);
+  return SHEET_HEADERS[name] || null;
+}
+
+function textColumns_(name, width) {
+  // Historique : toutes les colonnes sauf l'horodatage
+  if (name === HISTORY_SHEET) { const out = []; for (let c = 2; c <= width; c++) out.push(c); return out; }
+  return SHEET_TEXT_COLUMNS[name] || [];
+}
+
 // [V2] Mise en forme des feuilles créées par le script : en-tête figé et colonnes texte
 function formatManagedSheet_(sh, name) {
   try {
-    const width = SHEET_HEADERS[name].length;
+    const width = sheetHeaders_(name).length;
     sh.getRange(1, 1, 1, width).setFontWeight('bold');
     sh.setFrozenRows(1);
-    (SHEET_TEXT_COLUMNS[name] || []).forEach(function(col) {
+    textColumns_(name, width).forEach(function(col) {
       sh.getRange(1, col, sh.getMaxRows(), 1).setNumberFormat('@');
     });
   } catch (e) {
@@ -254,11 +295,16 @@ function withScriptLock_(fn) {
 }
 
 function normalizeChoices_(choices) {
-  if (!Array.isArray(choices) || choices.length !== BRANCHES.length) return null;
+  return normalizeChoicesIn_(choices, BRANCHES);
+}
+
+// [V2] Classement complet et sans doublon d'une liste donnée de spécialités (null sinon)
+function normalizeChoicesIn_(choices, list) {
+  if (!Array.isArray(choices) || choices.length !== list.length) return null;
   const out = [];
   for (let i = 0; i < choices.length; i++) {
     const c = (typeof choices[i] === 'string') ? choices[i].trim() : '';
-    if (BRANCHES.indexOf(c) === -1 || out.indexOf(c) !== -1) return null;
+    if (list.indexOf(c) === -1 || out.indexOf(c) !== -1) return null;
     out.push(c);
   }
   return out;
@@ -288,6 +334,9 @@ function choicesLock_(props) {
       out.locked = manual || out.deadlinePassed;
     }
   }
+  // [V2] Liste des spécialités illisible : aucun classement ne doit être enregistré sur la liste de secours
+  out.specialtiesInvalid = !!PROGRAM.branchesInvalid;
+  if (out.specialtiesInvalid) out.locked = true;
   // [V2] Verrou hors publication (sert à décider si une publication est possible)
   out.baseLocked = out.locked;
   // [V2] Des résultats publiés verrouillent aussi les choix
@@ -331,7 +380,79 @@ function activeEmail_() {
 }
 
 function scriptProps_() {
-  return PropertiesService.getScriptProperties().getProperties() || {};
+  const props = PropertiesService.getScriptProperties().getProperties() || {};
+  applyProgram_(props); // [V2] formation et spécialités en vigueur : relues avec chaque lecture des propriétés
+  return props;
+}
+
+// [V2] Charge la formation (nom, spécialités, effectif attendu) à partir des propriétés.
+// Chaque requête Apps Script est une exécution distincte : ces valeurs ne survivent pas à la requête.
+function applyProgram_(props) {
+  const name = String(props[PROGRAM_NAME_PROPERTY] === undefined || props[PROGRAM_NAME_PROPERTY] === null ? '' : props[PROGRAM_NAME_PROPERTY])
+    .replace(/[\u0000-\u001F\u007F]+/g, ' ').trim().slice(0, PROGRAM_NAME_MAX_LENGTH);
+  const parsed = parseBranches_(props[SPECIALTIES_PROPERTY]);
+  BRANCHES = parsed.list ? parsed.list : DEFAULT_BRANCHES.slice();
+  PROGRAM = {
+    name: name || DEFAULT_PROGRAM_NAME,
+    classSize: parseSeats_(props[CLASS_SIZE_PROPERTY], CLASS_SIZE, CLASS_SIZE_PROPERTY) || CLASS_SIZE,
+    branchesInvalid: parsed.invalid
+  };
+  return PROGRAM;
+}
+
+/**
+ * [V2] Propriété SPECIALTIES : tableau JSON de noms (écrit par l'interface), ou liste séparée par « ; ».
+ * Absente ou vide → liste par défaut. Illisible → liste par défaut ET choix verrouillés (cf. choicesLock_),
+ * pour ne jamais enregistrer de classement sur une liste qui n'est pas celle voulue.
+ */
+function parseBranches_(raw) {
+  const text = String(raw === undefined || raw === null ? '' : raw).trim();
+  if (!text) return { list: null, invalid: false };
+  let items = null;
+  if (text.charAt(0) === '[') {
+    const json = parseJson_(text);
+    if (Array.isArray(json) && json.every(function(x) { return typeof x === 'string'; })) items = json;
+  } else {
+    items = text.split(/[;\n]/);
+  }
+  if (!items) return { list: null, invalid: true };
+  const list = items.map(function(x) { return String(x).replace(/\s+/g, ' ').trim(); }).filter(function(x) { return x !== ''; });
+  const problem = branchListProblem_(list);
+  if (problem) Logger.log(SPECIALTIES_PROPERTY + ' invalide (' + problem + ') : liste par défaut, choix verrouillés.');
+  return problem ? { list: null, invalid: true } : { list: list, invalid: false };
+}
+
+// Clé de comparaison de deux noms de spécialité : casse, accents et espaces ignorés
+function branchKey_(name) {
+  return String(name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+// [V2] Raison pour laquelle un nom de spécialité est refusé (null s'il est valable)
+function branchNameProblem_(name) {
+  if (!name) return 'nom vide';
+  if (name.length > BRANCH_NAME_MAX_LENGTH) return '« ' + name.slice(0, 20) + '… » dépasse ' + BRANCH_NAME_MAX_LENGTH + ' caractères';
+  // Écrit tel quel dans les feuilles : jamais de formule ; et jamais un nom réservé des objets JavaScript
+  if (/^[=+\-@]/.test(name)) return '« ' + name + ' » ne peut pas commencer par =, +, - ou @';
+  if (name in {} || name === '__proto__') return '« ' + name + ' » est un nom réservé';
+  return null;
+}
+
+function branchListProblem_(list) {
+  if (list.length < MIN_BRANCHES) return 'il faut au moins ' + MIN_BRANCHES + ' spécialités';
+  if (list.length > MAX_BRANCHES) return MAX_BRANCHES + ' spécialités au plus';
+  const seen = {};
+  for (let i = 0; i < list.length; i++) {
+    const p = branchNameProblem_(list[i]);
+    if (p) return p;
+    const k = branchKey_(list[i]);
+    if (seen[k]) return '« ' + list[i] + ' » apparaît deux fois';
+    seen[k] = true;
+  }
+  return null;
+}
+
+function sameList_(a, b) {
+  return a.length === b.length && a.every(function(x, i) { return x === b[i]; });
 }
 
 function adminEmails_(props) {
@@ -350,7 +471,8 @@ function isAdmin_(email, props) {
 // Toute fonction publique d'administration commence par cet appel : masquer la page ne protège rien
 function requireAdmin_() {
   const email = activeEmail_();
-  if (!isAdmin_(email)) throw new Error(ACCESS_DENIED_MESSAGE);
+  // [V2] scriptProps_ charge aussi la formation en vigueur avant toute autre lecture
+  if (!isAdmin_(email, scriptProps_())) throw new Error(ACCESS_DENIED_MESSAGE);
   return email;
 }
 
@@ -359,7 +481,7 @@ function requireOwnerOrAdmin_() {
   const active = activeEmail_();
   let owner = '';
   try { owner = String(Session.getEffectiveUser().getEmail() || '').toLowerCase().trim(); } catch (e) { owner = ''; }
-  if (isAdmin_(active) || (active !== '' && active === owner)) return active;
+  if (isAdmin_(active, scriptProps_()) || (active !== '' && active === owner)) return active;
   throw new Error(ACCESS_DENIED_MESSAGE);
 }
 
@@ -368,7 +490,8 @@ function requireOwnerOrAdmin_() {
 // qu'aucune ancienne valeur ne peut rester figée (ni masquer un changement des valeurs par défaut).
 const MANAGED_PROPERTIES = [ADMIN_EMAILS_PROPERTY, STUDENT_PAGE_OPEN_PROPERTY, DEADLINE_PROPERTY, LOCKED_PROPERTY,
   MIN_SEATS_PROPERTY, MAX_SEATS_PROPERTY, UNDECIDED_POLICY_PROPERTY, ANNOUNCEMENT_PROPERTY,
-  FROZEN_SHEETS_PROPERTY, PUBLISHED_SHEET_PROPERTY, PUBLIC_URL_PROPERTY];
+  FROZEN_SHEETS_PROPERTY, PUBLISHED_SHEET_PROPERTY, PUBLIC_URL_PROPERTY,
+  PROGRAM_NAME_PROPERTY, SPECIALTIES_PROPERTY, CLASS_SIZE_PROPERTY];
 const LOCK_OFF_VALUES = ['false', '0', 'non', 'no', 'off'];
 
 // Interrupteur : activé → 'true' ; désactivé → propriété supprimée
@@ -406,6 +529,13 @@ function staleSettings_(props) {
   if (has(FROZEN_SHEETS_PROPERTY) && !frozenSheets_(props).length) out.push(FROZEN_SHEETS_PROPERTY);
   if (has(PUBLISHED_SHEET_PROPERTY) && !publishedSheet_(props)) out.push(PUBLISHED_SHEET_PROPERTY);
   if (has(PUBLIC_URL_PROPERTY) && !/^https:\/\//i.test(raw(PUBLIC_URL_PROPERTY))) out.push(PUBLIC_URL_PROPERTY);
+  // [V2] Formation : valeur par défaut ou vide (une liste de spécialités illisible n'en fait pas partie)
+  if (has(PROGRAM_NAME_PROPERTY) && (raw(PROGRAM_NAME_PROPERTY) === '' || raw(PROGRAM_NAME_PROPERTY) === DEFAULT_PROGRAM_NAME)) out.push(PROGRAM_NAME_PROPERTY);
+  if (has(SPECIALTIES_PROPERTY)) {
+    const b = parseBranches_(props[SPECIALTIES_PROPERTY]);
+    if (!b.invalid && (!b.list || sameList_(b.list, DEFAULT_BRANCHES))) out.push(SPECIALTIES_PROPERTY);
+  }
+  if (has(CLASS_SIZE_PROPERTY) && parseSeats_(props[CLASS_SIZE_PROPERTY], CLASS_SIZE, CLASS_SIZE_PROPERTY) === CLASS_SIZE) out.push(CLASS_SIZE_PROPERTY);
   return out;
 }
 
@@ -570,7 +700,8 @@ function compareNames_(a, b) {
 }
 
 function ordinalFr_(k) {
-  return ['1er choix', '2e choix', '3e choix'][k - 1] || 'hors choix';
+  // [V2] Autant de rangs que de spécialités
+  return k === 1 ? '1er choix' : (k >= 2 && k <= BRANCHES.length ? k + 'e choix' : 'hors choix');
 }
 
 function capitalizeFr_(s) {
@@ -652,19 +783,23 @@ function readSnapshot_(ss, diag) {
   const header = responsesSheet.getLastRow() >= 1 ? responsesSheet.getRange(1, 1, 1, width).getValues()[0] : [];
   const emailColumn = width >= 3 && isEmailHeader_(header[2]);
   const responses = readRows_(responsesSheet, width);
-  const prefs = readRows_(getOrCreateSheet_(ss, PREFERENCES_SHEET), 5);
+  // [V2] Colonnes de Preferences repérées par l'en-tête : Nom, Choice_1..n, Timestamp
+  const prefsSheet = getOrCreateSheet_(ss, PREFERENCES_SHEET);
+  const layout = prefsLayout_(prefsSheet);
+  const prefs = readRows_(prefsSheet, layout.width);
 
   // Indexer les préférences par nom normalisé (squash_) pour tolérer la casse/espaces
   const saved = {};
   const prefLines = {}; // [V2] diagnostic : lignes Preferences par nom
   prefs.forEach(function(row, i) {
     const key = squash_(row[0]);
-    const c = normalizeChoices_([row[1], row[2], row[3]]);
+    const c = normalizeChoices_(row.slice(1, 1 + layout.choices));
     if (key) {
       (prefLines[key] = prefLines[key] || { name: String(row[0]).trim(), lines: [], valid: !!c }).lines.push(i + 2);
     }
     if (key && c) {
-      saved[key] = { c: c, t: isDate_(row[4]) ? row[4].getTime() : null };
+      const ts = row[layout.ts];
+      saved[key] = { c: c, t: isDate_(ts) ? ts.getTime() : null };
     }
   });
 
@@ -720,6 +855,8 @@ function readSnapshot_(ss, diag) {
     diag.orphanPreferences = [];
     diag.duplicatePreferences = [];
     diag.invalidPreferences = [];
+    // [V2] Disposition de Preferences différente de la liste des spécialités (propriété modifiée à la main)
+    diag.preferencesLayout = layout.choices === BRANCHES.length ? null : { found: layout.choices, expected: BRANCHES.length };
     Object.keys(prefLines).forEach(function(k) {
       const p = prefLines[k];
       if (!known[k]) diag.orphanPreferences.push(p.name);
@@ -733,17 +870,76 @@ function readSnapshot_(ss, diag) {
     skipped: skipped,
     emailColumn: { present: emailColumn, filled: rows.filter(function(r) { return !!r.e; }).length },
     badEmails: badEmails,
+    branchesKey: branchesKey_(), // [V2] un cache lu avec une autre liste de spécialités est ignoré
     builtAt: Date.now()
   };
 }
 
+function branchesKey_() {
+  return BRANCHES.join('\n');
+}
+
+/**
+ * [V2] Disposition de Preferences d'après son en-tête : {choices, ts, width} (indices à partir de 0).
+ * Sans en-tête « Timestamp » reconnu : Nom, n colonnes de choix (n = nombre de spécialités), date.
+ */
+function prefsLayout_(sh) {
+  const n = BRANCHES.length;
+  let ts = -1;
+  try {
+    const width = Math.min(sh.getMaxColumns(), MAX_BRANCHES + 4);
+    if (sh.getLastRow() >= 1 && width >= 1) {
+      const header = sh.getRange(1, 1, 1, width).getValues()[0].map(squash_);
+      ts = header.indexOf('timestamp');
+    }
+  } catch (e) { ts = -1; }
+  if (ts < 1) ts = n + 1;
+  return { choices: ts - 1, ts: ts, width: ts + 1 };
+}
+
+/**
+ * [V2] Disposition de l'Historique : {choices, source, width} (indices à partir de 0) d'après l'en-tête.
+ * Elle peut compter plus de colonnes de choix que de spécialités (liste raccourcie) : jamais moins,
+ * ensureHistoryColumns_ ajoute les colonnes manquantes avant une écriture.
+ */
+function historyLayout_(sh) {
+  let src = -1;
+  try {
+    const width = Math.min(sh.getMaxColumns(), MAX_BRANCHES + 6);
+    if (sh.getLastRow() >= 1 && width >= 1) {
+      const header = sh.getRange(1, 1, 1, width).getValues()[0].map(squash_);
+      src = header.indexOf('source');
+    }
+  } catch (e) { src = -1; }
+  if (src < 3) src = 2 + DEFAULT_BRANCHES.length; // disposition d'origine : 3 choix
+  return { choices: src - 2, source: src, width: src + 2 };
+}
+
+// Historique : ajoute des colonnes de choix si la liste compte plus de spécialités que l'en-tête
+function ensureHistoryColumns_(sh, count) {
+  const layout = historyLayout_(sh);
+  const missing = (count || BRANCHES.length) - layout.choices;
+  if (missing <= 0) return layout;
+  sh.insertColumnsBefore(layout.source + 1, missing);
+  const n = layout.choices + missing;
+  sh.getRange(1, 3, 1, n).setValues([choiceHeaders_(n)]);
+  try { sh.getRange(1, 3, sh.getMaxRows(), n).setNumberFormat('@'); } catch (e) { Logger.log('Format Historique : ' + e); }
+  return { choices: n, source: 2 + n, width: 4 + n };
+}
+
 function loadSnapshot_() {
   const cache = CacheService.getScriptCache();
-  const hit = cache.get(SNAPSHOT_CACHE_KEY);
-  if (hit) return JSON.parse(hit);
+  // [V2] Un snapshot lu avec une autre liste de spécialités ne vaut plus rien
+  const usable = function(raw) {
+    if (!raw) return null;
+    const snap = JSON.parse(raw);
+    return snap && snap.branchesKey === branchesKey_() ? snap : null;
+  };
+  const hit = usable(cache.get(SNAPSHOT_CACHE_KEY));
+  if (hit) return hit;
   return withScriptLock_(function() {
-    const again = cache.get(SNAPSHOT_CACHE_KEY);
-    if (again) return JSON.parse(again);
+    const again = usable(cache.get(SNAPSHOT_CACHE_KEY));
+    if (again) return again;
     const snap = readSnapshot_(SpreadsheetApp.getActiveSpreadsheet());
     putSnapshot_(snap);
     return snap;
@@ -796,19 +992,34 @@ function readHistory_(ss) {
   const sh = ss.getSheetByName(HISTORY_SHEET);
   if (!sh) return [];
   const out = [];
-  readRows_(sh, 7).forEach(function(row) {
+  const layout = historyLayout_(sh);
+  readRows_(sh, layout.width).forEach(function(row) {
     const key = squash_(row[1]);
-    const c = normalizeChoices_([row[2], row[3], row[4]]);
+    // [V2] Classement tel qu'il était à cette date (la liste des spécialités a pu changer depuis)
+    const c = historyChoices_(row.slice(2, 2 + layout.choices));
     const at = timeMs_(row[0]);
     if (!key || !c || at === null) return;
+    const src = String(row[layout.source]).trim().toUpperCase();
     out.push({
       at: at, key: key, name: String(row[1]).trim(), choices: c,
-      source: String(row[5]).trim().toUpperCase() === 'ADMIN' ? 'ADMIN' : 'ETUDIANT',
-      author: String(row[6] || '').trim()
+      source: HISTORY_SOURCES.indexOf(src) !== -1 ? src : 'ETUDIANT',
+      author: String(row[layout.source + 1] || '').trim()
     });
   });
   out.sort(function(a, b) { return a.at - b.at; });
   return out;
+}
+
+// [V2] Choix d'une ligne d'Historique : textes non vides et distincts, dans l'ordre (null sinon)
+function historyChoices_(cells) {
+  const out = [];
+  for (let i = 0; i < cells.length; i++) {
+    const c = typeof cells[i] === 'string' ? cells[i].trim() : '';
+    if (!c) continue;
+    if (out.indexOf(c) !== -1) return null;
+    out.push(c);
+  }
+  return out.length ? out : null;
 }
 
 function groupHistory_(history) {
@@ -867,8 +1078,15 @@ function appendJournal_(ss, admin, action, details) {
 }
 
 function appendHistory_(ss, when, name, choices, source, author) {
-  getOrCreateSheet_(ss, HISTORY_SHEET)
-    .appendRow([when, sanitizeCell_(name), choices[0], choices[1], choices[2], source, sanitizeCell_(String(author || ''))]);
+  const sh = getOrCreateSheet_(ss, HISTORY_SHEET);
+  sh.appendRow(historyRow_(ensureHistoryColumns_(sh), when, name, choices, source, author));
+}
+
+// [V2] Ligne d'Historique à la largeur de la feuille (colonnes de choix en trop laissées vides)
+function historyRow_(layout, when, name, choices, source, author) {
+  const cells = [];
+  for (let k = 0; k < layout.choices; k++) cells.push(k < choices.length ? sanitizeCell_(choices[k]) : '');
+  return [when, sanitizeCell_(name)].concat(cells, [source, sanitizeCell_(String(author || ''))]);
 }
 
 // Réécrit les lignes de données d'une feuille en deux appels groupés
@@ -886,22 +1104,27 @@ function rewriteRows_(sh, rows, width) {
  */
 function writeChoices_(ss, officialName, choices, now, source, author, logHistory) {
   const prefsSheet = getOrCreateSheet_(ss, PREFERENCES_SHEET);
+  // [V2] Jamais d'écriture dans une disposition qui ne correspond pas à la liste des spécialités
+  if (prefsLayout_(prefsSheet).choices !== BRANCHES.length) {
+    desync_('Preferences : en-tête incompatible avec les ' + BRANCHES.length + ' spécialités (relancer setupSheets)');
+  }
   const keys = prefsSheet.getLastRow() > 1
     ? prefsSheet.getRange(2, 1, prefsSheet.getLastRow() - 1, 1).getValues()
     : [];
   const targetKey = squash_(officialName);
   let updated = 0;
+  const line = [sanitizeCell_(officialName)].concat(choices.map(sanitizeCell_), [now]);
 
   // Écraser la ligne existante de l'étudiant (en gardant son Nom officiel en clair en Colonne A)
   for (let i = 0; i < keys.length; i++) {
     if (squash_(keys[i][0]) === targetKey) {
-      prefsSheet.getRange(i + 2, 1, 1, 5).setValues([[sanitizeCell_(officialName), choices[0], choices[1], choices[2], now]]);
+      prefsSheet.getRange(i + 2, 1, 1, line.length).setValues([line]);
       updated++;
     }
   }
   if (updated === 0) {
     // Première soumission : écrit le Nom officiel en clair dans la feuille Preferences
-    prefsSheet.appendRow([sanitizeCell_(officialName), choices[0], choices[1], choices[2], now]);
+    prefsSheet.appendRow(line);
   }
   if (logHistory !== false) appendHistory_(ss, now, officialName, choices, source, author);
 }
@@ -914,7 +1137,7 @@ function getDashboardState(choices) {
   // [V2] Contrôle administrateur AVANT tout appariement par nom
   const email = activeEmail_();
   const props = scriptProps_(); // [V2] lues une seule fois pour toute la requête
-  if (isAdmin_(email, props)) return { access: 'ADMIN', adminUrl: webAppUrl_() };
+  if (isAdmin_(email, props)) return { access: 'ADMIN', adminUrl: webAppUrl_(), program: programInfo_() };
   // [V2] Page fermée : un état dédié (et non une erreur), pour qu'un onglet déjà ouvert bascule
   // sur la page d'attente et cesse d'afficher d'anciennes données ou une annonce retirée.
   if (!studentPageOpen_(props)) return closedState_(props);
@@ -928,7 +1151,7 @@ function previewOdds(userChoices) {
   const props = scriptProps_(); // [V2] lues une seule fois
   if (isAdmin_(activeEmail_(), props)) throw new Error(ADMIN_NOT_STUDENT_MESSAGE);
   const choices = normalizeChoices_(userChoices);
-  if (!choices) throw new Error(INVALID_CHOICES_MESSAGE);
+  if (!choices) throw new Error(invalidChoicesMessage_());
   assertStudentPageOpen_(props);
   const snap = loadSnapshot_();
   const name = currentUserName_(snap, props);
@@ -941,7 +1164,7 @@ function saveChoices(userChoices) {
   const props = scriptProps_(); // [V2] lues une seule fois (relues sous verrou avant d'écrire)
   if (isAdmin_(email, props)) throw new Error(ADMIN_NOT_STUDENT_MESSAGE);
   const choices = normalizeChoices_(userChoices);
-  if (!choices) throw new Error(INVALID_CHOICES_MESSAGE);
+  if (!choices) throw new Error(invalidChoicesMessage_());
   assertStudentPageOpen_(props);
   // [V2] choicesLock_ inclut la publication des résultats (aucun enregistrement après publication)
   if (choicesLock_(props).locked) throw new Error(LOCKED_MESSAGE);
@@ -968,7 +1191,7 @@ function saveChoices(userChoices) {
     const snap = readSnapshot_(ss);
     const officialName = currentUserName_(snap, fresh);
     const u = indexOfStudent_(snap, officialName);
-    if (u === -1) throw new Error(NO_GRADE_MESSAGE);
+    if (u === -1) throw new Error(noGradeMessage_());
 
     const now = new Date();
     // [V2] Écriture commune : Preferences comme avant, + une ligne Historique si les choix changent
@@ -990,6 +1213,7 @@ function closedState_(props) {
   return {
     access: 'CLOSED',
     message: WAITING_TEXT,
+    program: programInfo_(), // [V2]
     announcement: announcement_(props),
     serverTime: new Date().toISOString(),
     timeZone: Session.getScriptTimeZone()
@@ -998,7 +1222,7 @@ function closedState_(props) {
 
 function buildState_(snap, officialName, requested, props) {
   const u = indexOfStudent_(snap, officialName);
-  if (u === -1) throw new Error(NO_GRADE_MESSAGE);
+  if (u === -1) throw new Error(noGradeMessage_());
 
   const me = snap.rows[u];
   // [V2] Propriétés lues une seule fois (transmises par l'appelant) ; règles en vigueur au lieu des constantes
@@ -1015,24 +1239,32 @@ function buildState_(snap, officialName, requested, props) {
     locked: lockInfo.locked,
     serverTime: new Date().toISOString(),
     timeZone: Session.getScriptTimeZone(),
-    rules: { branches: BRANCHES.slice(), minSeats: rules.min, maxSeats: rules.max, classSize: snap.rows.length || CLASS_SIZE },
+    rules: { branches: BRANCHES.slice(), minSeats: rules.min, maxSeats: rules.max, classSize: snap.rows.length || PROGRAM.classSize },
     stats: stats_(snap),
     coverage: coverage,
     projection: project_(snap, u, requested || me.c, me.c, coverage, rules),
     // [V2] Champs additionnels : annonce et résultat officiel publié
     announcement: announcement_(props),
-    official: officialResult_(officialName, props)
+    official: officialResult_(officialName, props),
+    program: programInfo_() // [V2]
   };
 }
 
+// [V2] Formation affichée en en-tête des pages
+function programInfo_() {
+  return { name: PROGRAM.name };
+}
+
+// Demande : stats[filière] = {c1, c2, …, cn} (nombre d'étudiants l'ayant classée k-ième)
 function stats_(snap) {
   const stats = {};
-  BRANCHES.forEach(function(b) { stats[b] = { c1: 0, c2: 0, c3: 0 }; });
+  BRANCHES.forEach(function(b) {
+    stats[b] = {};
+    for (let k = 1; k <= BRANCHES.length; k++) stats[b]['c' + k] = 0;
+  });
   snap.rows.forEach(function(r) {
     if (!r.c) return;
-    stats[r.c[0]].c1++;
-    stats[r.c[1]].c2++;
-    stats[r.c[2]].c3++;
+    r.c.forEach(function(b, k) { stats[b]['c' + (k + 1)]++; });
   });
   return stats;
 }
@@ -1078,7 +1310,7 @@ function officialMap_(pub) {
     const hit = cache.get(OFFICIAL_CACHE_KEY);
     if (hit) {
       const parsed = JSON.parse(hit);
-      if (parsed && parsed.sheet === pub.sheet) return parsed;
+      if (parsed && parsed.sheet === pub.sheet && parsed.branchesKey === branchesKey_()) return parsed;
     }
   } catch (e) { Logger.log('Official cache read failed: ' + e); }
 
@@ -1087,7 +1319,8 @@ function officialMap_(pub) {
     Logger.log('Feuille publiée introuvable : ' + pub.sheet);
     return null;
   }
-  const width = Math.max(1, Math.min(ALLOCATION_HEADERS.length, sh.getMaxColumns()));
+  // [V2] Colonnes repérées par l'en-tête : la feuille a autant de colonnes « Choix » que de spécialités au gel
+  const width = Math.max(1, Math.min(allocationHeaders_(MAX_BRANCHES).length, sh.getMaxColumns()));
   const header = sh.getRange(1, 1, 1, width).getValues()[0].map(squash_);
   const col = function(label, fallback) { const k = header.indexOf(squash_(label)); return k !== -1 ? k : fallback; };
   const cName = col('Nom', 1), cBranch = col('Filière affectée', 6), cRank = col('Rang du choix obtenu', 7);
@@ -1097,9 +1330,9 @@ function officialMap_(pub) {
     if (!key) return;
     const b = String(row[cBranch] === undefined ? '' : row[cBranch]).trim();
     const r = Number(row[cRank]);
-    byKey[key] = { b: BRANCHES.indexOf(b) !== -1 ? b : null, r: (r === 1 || r === 2 || r === 3) ? r : null };
+    byKey[key] = { b: BRANCHES.indexOf(b) !== -1 ? b : null, r: (Math.floor(r) === r && r >= 1 && r <= BRANCHES.length) ? r : null };
   });
-  const map = { sheet: pub.sheet, byKey: byKey };
+  const map = { sheet: pub.sheet, branchesKey: branchesKey_(), byKey: byKey };
   try { cache.put(OFFICIAL_CACHE_KEY, JSON.stringify(map), OFFICIAL_CACHE_SECONDS); } catch (e) { Logger.log('Official cache put failed: ' + e); }
   return map;
 }
@@ -1116,7 +1349,7 @@ function project_(snap, u, choices, saved, coverage, rules) {
     return {
       status: 'NO_CHOICES', choices: null, isSaved: false,
       bestBranch: null, worstBranch: null, reason: null,
-      message: "Vous n'avez pas encore enregistré de choix. Classez les 3 filières, prévisualisez, puis enregistrez."
+      message: "Vous n'avez pas encore enregistré de choix. Classez les " + BRANCHES.length + ' filières, prévisualisez, puis enregistrez.'
     };
   }
   const behindCase = reachableLandings_(snap, u, choices, false, rules);
@@ -1143,7 +1376,7 @@ function project_(snap, u, choices, saved, coverage, rules) {
 
 function projectionMessage_(status, choices, best, worst, reason, cov, rules) {
   rules = rules || defaultRules_(); // [V2]
-  const ordinal = function(b) { return ['1er', '2e', '3e'][choices.indexOf(b)] + ' choix'; };
+  const ordinal = function(b) { return ordinalFr_(choices.indexOf(b) + 1); };
   const why = reason === 'CAPACITY'
     ? choices[0] + ' est complet (' + rules.max + ' places au maximum) avant votre rang'
     : 'les étudiants classés derrière vous sont nécessaires pour atteindre le minimum de ' +
@@ -1183,10 +1416,23 @@ function reachableLandings_(snap, u, choices, ahead, rules) {
     else groups.push([prefs]);
   });
 
+  // [V2] Un état = effectifs des n filières, codés en base W sur les n − 1 premières (la dernière s'en déduit).
+  // Avec 3 filières, le code est exactement celui d'origine (x0 × W + x1) et les états sont parcourus
+  // dans le même ordre : résultats identiques.
+  const B = BRANCHES.length;
   const W = totalStudents + 1;
-  const seen = new Int32Array(W * W * 16).fill(-1);
-  const x = [0, 0, 0];
-  const options = [0, 0, 0];
+  const x = BRANCHES.map(function() { return 0; });
+  const options = BRANCHES.map(function() { return 0; });
+  const encode = function() {
+    let code = 0;
+    for (let k = 0; k < B - 1; k++) code = code * W + x[k];
+    return code;
+  };
+  const decode = function(code, at) {
+    let sum = 0;
+    for (let k = B - 2; k >= 0; k--) { x[k] = code % W; code = Math.floor(code / W); sum += x[k]; }
+    x[B - 1] = at - sum;
+  };
   let states = [0];
   let pos = 0;
   groups.forEach(function(group) {
@@ -1196,17 +1442,18 @@ function reachableLandings_(snap, u, choices, ahead, rules) {
       for (let t = 0; t < g.length; t++, pos++) {
         const remaining = totalStudents - 1 - pos;
         const next = [];
+        const seen = new Set(); // états déjà atteints à cette position
         for (let s = 0; s < layer.length; s++) {
           const code = Math.floor(layer[s] / 16), mask = layer[s] % 16;
-          x[0] = Math.floor(code / W); x[1] = code % W; x[2] = pos - x[0] - x[1];
+          decode(code, pos);
           for (let j = 0; j < g.length; j++) {
             if (mask & (1 << j)) continue;
             const n = stepOptions_(x, g[j], remaining, options, rules);
             for (let o = 0; o < n; o++) {
               x[options[o]]++;
-              const key = (x[0] * W + x[1]) * 16 + (mask | (1 << j));
+              const key = encode() * 16 + (mask | (1 << j));
               x[options[o]]--;
-              if (seen[key] !== pos) { seen[key] = pos; next.push(key); }
+              if (!seen.has(key)) { seen.add(key); next.push(key); }
             }
           }
         }
@@ -1220,7 +1467,7 @@ function reachableLandings_(snap, u, choices, ahead, rules) {
   const remaining = totalStudents - 1 - pos;
   const landings = {};
   for (let s = 0; s < states.length; s++) {
-    x[0] = Math.floor(states[s] / W); x[1] = states[s] % W; x[2] = pos - x[0] - x[1];
+    decode(states[s], pos);
     const res = assignOne_(x, mine, remaining, rules);
     if (!(BRANCHES[res.b] in landings)) landings[BRANCHES[res.b]] = res.reason;
   }
@@ -1232,12 +1479,12 @@ function stepOptions_(x, prefs, remaining, out, rules) {
   if (prefs) { out[0] = assignOne_(x, prefs, remaining, rules).b; return 1; }
   const base = seatsNeeded_(x, -1, rules);
   let n = 0;
-  for (let b = 0; b < 3; b++) {
+  for (let b = 0; b < x.length; b++) {
     if (x[b] < rules.max && remaining >= base - (x[b] < rules.min ? 1 : 0)) {
       out[n++] = b;
     }
   }
-  if (n === 0) out[n++] = assignOne_(x, [0, 1, 2], remaining, rules).b;
+  if (n === 0) out[n++] = assignOne_(x, BRANCHES.map(function(v, k) { return k; }), remaining, rules).b;
   return n;
 }
 
@@ -1340,7 +1587,7 @@ function allocationOrder_(rows, keys, tieOrders) {
 
 function runAllocation_(rows, keys, order, rules, forced, policy) {
   const n = rows.length;
-  const counts = [0, 0, 0];
+  const counts = BRANCHES.map(function() { return 0; });
   const res = new Array(n);
   const done = new Array(n);
   for (let i = 0; i < n; i++) {
@@ -1376,7 +1623,7 @@ function runAllocation_(rows, keys, order, rules, forced, policy) {
     unplaced--;
     res[i].at = at;
     res[i].remaining = remaining;
-    if (r.b === -1) { res[i].reason = 'CAPACITY'; return; } // impossible lorsque 3 × max ≥ effectif
+    if (r.b === -1) { res[i].reason = 'CAPACITY'; return; } // impossible lorsque n × max ≥ effectif
     counts[r.b]++;
     res[i].branch = BRANCHES[r.b];
     res[i].choiceRank = rows[i].c.indexOf(BRANCHES[r.b]) + 1;
@@ -1476,14 +1723,20 @@ function permutations_(items, visit) {
 function allocationSummary_(rows, alloc) {
   const max = alloc.rules.max;
   const per = {};
+  // [V2] Un compteur r1..rn par rang de choix
+  const ranks = function(into) {
+    for (let k = 1; k <= BRANCHES.length; k++) into['r' + k] = 0;
+    return into;
+  };
   BRANCHES.forEach(function(b) {
     per[b] = {
       count: 0, seatsLeft: 0, full: false, cutoffGrade: null,
-      byRank: { r1: 0, r2: 0, r3: 0 },
+      byRank: ranks({}),
       bySource: { ALGO: 0, TIEBREAK: 0, MANUAL: 0, AUTO: 0 }
     };
   });
-  const sat = { r1: 0, r2: 0, r3: 0, placed: 0, unplaced: 0, avgRank: null };
+  const sat = ranks({});
+  sat.placed = 0; sat.unplaced = 0; sat.avgRank = null;
   let rankSum = 0, rankN = 0;
   alloc.order.forEach(function(i) {
     const r = alloc.res[i];
@@ -1586,6 +1839,7 @@ function sourceComment_(row, r, alloc, forcedInfo, tie) {
 
 function adminContext_(ss, fresh) {
   const diag = {};
+  const props = scriptProps_(); // [V2] avant toute lecture des feuilles (liste des spécialités en vigueur)
   let snap;
   if (fresh) {
     // Lecture fraîche (sans le cache de 30 s) puis remise en cache, sous verrou
@@ -1597,7 +1851,7 @@ function adminContext_(ss, fresh) {
   } else {
     snap = loadSnapshot_();
   }
-  return contextFrom_(ss, scriptProps_(), snap, diag);
+  return contextFrom_(ss, props, snap, diag);
 }
 
 function contextFrom_(ss, props, snap, diag) {
@@ -1689,17 +1943,25 @@ function buildOverview_(ctx) {
     timeZone: tz,
     config: {
       branches: BRANCHES.slice(),
-      expectedClassSize: CLASS_SIZE,
+      expectedClassSize: PROGRAM.classSize,
+      // [V2] Formation et bornes de la liste des spécialités (carte « Formation et spécialités »)
+      program: {
+        name: PROGRAM.name, classSize: PROGRAM.classSize, specialtiesInvalid: PROGRAM.branchesInvalid,
+        defaultName: DEFAULT_PROGRAM_NAME, defaultClassSize: CLASS_SIZE, defaultBranches: DEFAULT_BRANCHES.slice(),
+        minBranches: MIN_BRANCHES, maxBranches: MAX_BRANCHES, nameMaxLength: PROGRAM_NAME_MAX_LENGTH, branchMaxLength: BRANCH_NAME_MAX_LENGTH,
+        builtBy: BUILT_BY_TEXT
+      },
       spreadsheetUrl: spreadsheetUrl,
       rules: {
         min: rules.min, max: rules.max, defaultMin: MIN_SEATS, defaultMax: MAX_SEATS,
-        floor: Math.max(rules.min, N - 2 * rules.max)
+        floor: floorSeats_(rules, N)
       },
       deadline: lock.deadline,
       deadlineLocal: dl !== null ? Utilities.formatDate(new Date(dl), tz, 'yyyy-MM-dd HH:mm') : null,
       deadlineInvalid: lock.deadlineInvalid,
       deadlineRaw: lock.deadlineInvalid ? String(ctx.props[DEADLINE_PROPERTY] || '').trim().slice(0, 100) : null, // [V2]
       locked: lock.locked,
+      specialtiesInvalid: lock.specialtiesInvalid, // [V2]
       manualLock: lock.manualLock,
       deadlinePassed: lock.deadlinePassed,
       studentPageOpen: studentPageOpen_(ctx.props),
@@ -1737,12 +1999,14 @@ function deploymentInfo_(props) {
 function participation_(rows, keys, histByKey, tz) {
   let saved = 0, last = null;
   const firstSaves = [];
+  // [V2] Les lignes SPECIALITES (classement converti après un changement de la liste) ne sont pas des choix d'étudiant
+  const own = function(h) { return (h || []).filter(function(x) { return x.source !== 'SPECIALITES'; }); };
   rows.forEach(function(r, i) {
     if (!r.c) return;
     saved++;
     if (typeof r.t === 'number' && (last === null || r.t > last)) last = r.t;
-    const h = histByKey[keys[i]];
-    const t0 = h && h.length ? h[0].at : r.t;
+    const h = own(histByKey[keys[i]]);
+    const t0 = h.length ? h[0].at : r.t;
     if (typeof t0 === 'number' && isFinite(t0)) firstSaves.push(t0);
   });
   const known = {};
@@ -1751,7 +2015,7 @@ function participation_(rows, keys, histByKey, tz) {
   Object.keys(histByKey).forEach(function(k) {
     if (!known[k]) return;
     const distinct = {};
-    histByKey[k].forEach(function(h) { distinct[h.choices.join('|')] = true; });
+    own(histByKey[k]).forEach(function(h) { distinct[h.choices.join('|')] = true; });
     if (Object.keys(distinct).length >= 2) changed++;
   });
   firstSaves.sort(function(a, b) { return a - b; });
@@ -1790,17 +2054,34 @@ function timeline_(times, tz) {
   return { unit: unit, points: points };
 }
 
+// [V2] Effectif garanti à chaque filière : ce que les n − 1 autres ne peuvent pas absorber
+function floorSeats_(rules, N) {
+  return Math.max(rules.min, N - (BRANCHES.length - 1) * rules.max);
+}
+
+// [V2] Tous les classements possibles, dans l'ordre lexicographique de la liste (6 pour 3 filières)
+function rankingsOf_(items) {
+  if (items.length <= 1) return [items.slice()];
+  const out = [];
+  items.forEach(function(first, i) {
+    rankingsOf_(items.slice(0, i).concat(items.slice(i + 1))).forEach(function(rest) { out.push([first].concat(rest)); });
+  });
+  return out;
+}
+
 function demand_(rows) {
-  const perms = [];
-  BRANCHES.forEach(function(a) {
-    BRANCHES.forEach(function(b) {
-      BRANCHES.forEach(function(c) {
-        if (a !== b && b !== c && a !== c) perms.push([a, b, c]);
-      });
-    });
+  // Jusqu'à 4 filières (24 classements), tous sont listés ; au-delà, seuls ceux qui ont été choisis
+  const all = BRANCHES.length <= 4;
+  const perms = all ? rankingsOf_(BRANCHES) : [];
+  const counted = {};
+  rows.forEach(function(r) {
+    if (!r.c) return;
+    const k = r.c.join('\n');
+    if (!(k in counted)) { counted[k] = 0; if (!all) perms.push(r.c.slice()); }
+    counted[k]++;
   });
   const rankings = perms.map(function(p, k) {
-    return { order: p, count: rows.filter(function(r) { return sameChoices_(r.c, p); }).length, k: k };
+    return { order: p, count: counted[p.join('\n')] || 0, k: k };
   });
   rankings.sort(function(x, y) { return (y.count - x.count) || (x.k - y.k); });
   return {
@@ -1837,7 +2118,9 @@ function health_(ctx, alloc) {
   }
   return {
     loaded: rows.length,
-    expected: CLASS_SIZE,
+    expected: PROGRAM.classSize,
+    specialtiesInvalid: PROGRAM.branchesInvalid, // [V2] propriété SPECIALTIES illisible
+    preferencesLayout: diag.preferencesLayout || null, // [V2] Preferences ne suit pas la liste des spécialités
     publishedSheetMissing: publishedSheetMissing,
     staleProperties: staleSettings_(ctx.props),
     skipped: (snap.skipped || []).slice(),
@@ -1887,7 +2170,7 @@ function adminGetStatusTally() {
     if (hit) {
       const parsed = JSON.parse(hit);
       const now = rules_();
-      if (parsed.rules && parsed.rules.min === now.min && parsed.rules.max === now.max) return parsed;
+      if (parsed.rules && parsed.rules.min === now.min && parsed.rules.max === now.max && parsed.branchesKey === branchesKey_()) return parsed;
     }
   } catch (e) { Logger.log('Tally cache read failed: ' + e); }
   const snap = loadSnapshot_();
@@ -1900,7 +2183,7 @@ function adminGetStatusTally() {
     counts[status] = (counts[status] || 0) + 1;
     byStudent[r.h] = status;
   });
-  const out = { computedAt: new Date().toISOString(), counts: counts, byStudent: byStudent, rules: { min: rules.min, max: rules.max } };
+  const out = { computedAt: new Date().toISOString(), counts: counts, byStudent: byStudent, rules: { min: rules.min, max: rules.max }, branchesKey: branchesKey_() };
   try { cache.put(TALLY_CACHE_KEY, JSON.stringify(out), TALLY_CACHE_SECONDS); } catch (e) { Logger.log('Tally cache put failed: ' + e); }
   return out;
 }
@@ -1944,8 +2227,9 @@ function validateRules_(min, max, N) {
   if (min === null || max === null) throw new Error('Le minimum et le maximum doivent être des nombres entiers.');
   if (min < 0 || min > max) throw new Error('Règles invalides : il faut 0 ≤ minimum ≤ maximum.');
   if (max > 999) throw new Error('Maximum trop grand.');
-  if (3 * max < N) throw new Error('Plafond insuffisant : 3 × ' + max + ' = ' + (3 * max) + ' places pour ' + N + ' étudiants.');
-  if (3 * min > N) throw new Error('Minimum impossible : 3 × ' + min + ' = ' + (3 * min) + " dépasse l'effectif de " + N + '.');
+  const B = BRANCHES.length;
+  if (B * max < N) throw new Error('Plafond insuffisant : ' + B + ' × ' + max + ' = ' + (B * max) + ' places pour ' + N + ' étudiants.');
+  if (B * min > N) throw new Error('Minimum impossible : ' + B + ' × ' + min + ' = ' + (B * min) + " dépasse l'effectif de " + N + '.');
 }
 
 function adminWhatIf(req) {
@@ -1959,14 +2243,15 @@ function adminWhatIf(req) {
   const rows = ctx.snap.rows;
   const N = rows.length;
   const scenarioRules = { min: min, max: max };
-  const floor = Math.max(min, N - 2 * max);
-  const feasible = 3 * max >= N && 3 * min <= N;
+  const B = BRANCHES.length;
+  const floor = floorSeats_(scenarioRules, N);
+  const feasible = B * max >= N && B * min <= N;
   const warnings = [];
-  if (3 * max < N) warnings.push('Plafond insuffisant : 3 × ' + max + ' = ' + (3 * max) + ' places pour ' + N + ' étudiants. Des étudiants resteraient sans filière.');
-  if (3 * min > N) warnings.push('Minimum impossible : 3 × ' + min + ' = ' + (3 * min) + " dépasse l'effectif de " + N + '.');
-  if (feasible && N - 2 * max >= min) {
+  if (B * max < N) warnings.push('Plafond insuffisant : ' + B + ' × ' + max + ' = ' + (B * max) + ' places pour ' + N + ' étudiants. Des étudiants resteraient sans filière.');
+  if (B * min > N) warnings.push('Minimum impossible : ' + B + ' × ' + min + ' = ' + (B * min) + " dépasse l'effectif de " + N + '.');
+  if (feasible && N - (B - 1) * max >= min) {
     warnings.push('Le minimum de ' + min + " n'est pas contraignant : avec un plafond de " + max + ', chaque filière reçoit forcément au moins ' +
-      (N - 2 * max) + ' étudiants. C\'est le plafond qui décide.');
+      (N - (B - 1) * max) + ' étudiants. C\'est le plafond qui décide.');
   }
   const forcedCount = {};
   Object.keys(ctx.forcedMap).forEach(function(k) { forcedCount[ctx.forcedMap[k]] = (forcedCount[ctx.forcedMap[k]] || 0) + 1; });
@@ -2028,17 +2313,28 @@ function adminGetJournal(req) {
 }
 
 // Tableau commun du gel et de l'export « allocation »
+// [V2] En-tête des feuilles Affectation_ : une colonne « Choix k » par spécialité
+function allocationHeaders_(n) {
+  const out = ['Rang', 'Nom', 'Note'];
+  for (let k = 1; k <= n; k++) out.push('Choix ' + k);
+  return out.concat(ALLOCATION_TAIL_HEADERS);
+}
+
+// Classement d'une ligne sur n colonnes (vides si aucun choix)
+function choiceCells_(c) {
+  return BRANCHES.map(function(b, k) { return c ? c[k] : ''; });
+}
+
 function allocationTable_(ctx, alloc) {
   const rows = ctx.snap.rows;
   const tieOf = {};
   alloc.ties.forEach(function(t) { t.members.forEach(function(i) { tieOf[i] = t; }); });
   const body = alloc.order.map(function(i) {
     const r = rows[i], a = alloc.res[i];
-    const c = r.c || ['', '', ''];
-    return [a.rank, r.h, r.g, c[0], c[1], c[2], a.branch || '', a.choiceRank || '', a.source || '',
-      sourceComment_(r, a, alloc, ctx.forced[alloc.keys[i]], tieOf[i])];
+    return [a.rank, r.h, r.g].concat(choiceCells_(r.c), [a.branch || '', a.choiceRank || '', a.source || '',
+      sourceComment_(r, a, alloc, ctx.forced[alloc.keys[i]], tieOf[i])]);
   });
-  return [ALLOCATION_HEADERS.slice()].concat(body);
+  return [allocationHeaders_(BRANCHES.length)].concat(body);
 }
 
 function adminExport(kind) {
@@ -2065,8 +2361,9 @@ function adminExport(kind) {
     base = 'filiere_' + squash_(b);
   } else if (kind === 'demand') {
     const d = demand_(rows);
-    table = [['Filière', '1er choix', '2e choix', '3e choix']].concat(BRANCHES.map(function(b) {
-      return [b, d.perBranch[b].c1, d.perBranch[b].c2, d.perBranch[b].c3];
+    const ranks = BRANCHES.map(function(b, k) { return k + 1; });
+    table = [['Filière'].concat(ranks.map(ordinalFr_))].concat(BRANCHES.map(function(b) {
+      return [b].concat(ranks.map(function(k) { return d.perBranch[b]['c' + k]; }));
     }));
     table.push([]);
     table.push(['Classement complet', 'Nombre d\'étudiants']);
@@ -2078,12 +2375,12 @@ function adminExport(kind) {
     }));
     base = 'sans_choix';
   } else if (kind === 'roster') {
-    table = [['Rang', 'Nom', 'Note', 'Email', 'Choix 1', 'Choix 2', 'Choix 3', 'Enregistré le',
-      'Filière provisoire', 'Rang du choix', 'Origine']].concat(alloc.order.map(function(i) {
-      const r = rows[i], a = alloc.res[i], c = r.c || ['', '', ''];
-      return [a.rank, r.h, r.g, r.e || '', c[0], c[1], c[2],
+    table = [['Rang', 'Nom', 'Note', 'Email'].concat(BRANCHES.map(function(b, k) { return 'Choix ' + (k + 1); }),
+      ['Enregistré le', 'Filière provisoire', 'Rang du choix', 'Origine'])].concat(alloc.order.map(function(i) {
+      const r = rows[i], a = alloc.res[i];
+      return [a.rank, r.h, r.g, r.e || ''].concat(choiceCells_(r.c), [
         r.t ? Utilities.formatDate(new Date(r.t), tz, 'yyyy-MM-dd HH:mm') : '',
-        a.branch || '', a.choiceRank || '', a.source || ''];
+        a.branch || '', a.choiceRank || '', a.source || '']);
     }));
     base = 'liste_complete';
   } else {
@@ -2123,14 +2420,15 @@ function adminTestEmail(email) {
 }
 
 function reminderDefaults_() {
+  const count = ['deux', 'trois', 'quatre', 'cinq'][BRANCHES.length - 2] || String(BRANCHES.length);
   return {
-    subject: 'Rappel : classez vos filières de spécialité (CI2 RST)',
+    subject: 'Rappel : classez vos filières de spécialité (' + PROGRAM.name + ')',
     body: 'Bonjour {nom},\n\n' +
       "Vous n'avez pas encore enregistré votre classement des filières de spécialité (" + BRANCHES.join(', ') + ').\n\n' +
       'Date limite : {date_limite}\n' +
       'Lien : {lien}\n\n' +
-      'Connectez-vous avec votre compte @' + DOMAIN + ', classez les trois filières, puis appuyez sur « Enregistrer mes choix ».\n\n' +
-      'Cordialement,\nLa coordination CI2 RST'
+      'Connectez-vous avec votre compte @' + DOMAIN + ', classez les ' + count + ' filières, puis appuyez sur « Enregistrer mes choix ».\n\n' +
+      'Cordialement,\nLa coordination ' + PROGRAM.name
   };
 }
 
@@ -2183,9 +2481,11 @@ function adminWrite_(admin, action, fn) {
 function overviewAfterWrite_(ss) {
   try {
     const diag = {};
+    // [V2] Propriétés relues AVANT les feuilles : une liste de spécialités modifiée doit servir à la lecture
+    const props = scriptProps_();
     const snap = readSnapshot_(ss, diag);
     putSnapshot_(snap);
-    return buildOverview_(contextFrom_(ss, scriptProps_(), snap, diag));
+    return buildOverview_(contextFrom_(ss, props, snap, diag));
   } catch (e) {
     Logger.log("Vue d'ensemble non construite après écriture : " + e);
     return null;
@@ -2359,7 +2659,7 @@ function adminSetChoicesFor(req) {
   req = req || {};
   const reason = requireReason_(req.reason);
   const choices = normalizeChoices_(req.choices);
-  if (!choices) throw new Error(INVALID_CHOICES_MESSAGE);
+  if (!choices) throw new Error(invalidChoicesMessage_());
   return adminWrite_(admin, 'CHOIX_ADMIN', function(ss, props) {
     assertNotPublished_(props);
     const snap = readSnapshot_(ss);
@@ -2433,10 +2733,15 @@ function adminFreezeAllocation(req) {
     const name = ALLOCATION_SHEET_PREFIX + Utilities.formatDate(now, tz, 'yyyyMMdd_HHmm');
     if (ss.getSheetByName(name)) throw new Error('Une affectation a déjà été figée à cette minute (' + name + ') : réessayez dans une minute.');
     const table = allocationTable_(ctx, alloc);
+    const width = table[0].length;
     const sh = ss.insertSheet(name);
-    [2, 4, 5, 6, 7, 9, 10].forEach(function(col) { sh.getRange(1, col, Math.max(table.length, 2), 1).setNumberFormat('@'); });
-    sh.getRange(1, 1, table.length, ALLOCATION_HEADERS.length).setValues(table.map(function(r) { return r.map(sanitizeCell_); }));
-    sh.getRange(1, 1, 1, ALLOCATION_HEADERS.length).setFontWeight('bold');
+    // Colonnes texte : Nom, Choix 1..n, Filière affectée, Origine, Commentaire
+    const B = BRANCHES.length;
+    [2].concat(BRANCHES.map(function(b, k) { return 4 + k; }), [4 + B, 6 + B, 7 + B]).forEach(function(col) {
+      sh.getRange(1, col, Math.max(table.length, 2), 1).setNumberFormat('@');
+    });
+    sh.getRange(1, 1, table.length, width).setValues(table.map(function(r) { return r.map(sanitizeCell_); }));
+    sh.getRange(1, 1, 1, width).setFontWeight('bold');
     sh.setFrozenRows(1);
     try { sh.protect().setDescription('Affectation figée le ' + now.toISOString()).setWarningOnly(true); } catch (e) { Logger.log('Protection impossible : ' + e); }
     // [V2] Les feuilles figées supprimées à la main disparaissent de la liste
@@ -2468,7 +2773,13 @@ function adminPublishResults(req) {
     if (!lock.baseLocked) throw new Error("Clôturez d'abord les choix (verrou ou date limite dépassée) avant de publier.");
     const listed = frozenSheets_(props).some(function(f) { return f.sheet === sheet; });
     if (!listed) throw new Error('Cette feuille ne fait pas partie des affectations figées.');
-    if (!ss.getSheetByName(sheet)) throw new Error("La feuille « " + sheet + " » n'existe plus dans le classeur.");
+    const sh = ss.getSheetByName(sheet);
+    if (!sh) throw new Error("La feuille « " + sheet + " » n'existe plus dans le classeur.");
+    // [V2] Une affectation figée avant un changement des spécialités ne correspond plus à la liste en vigueur
+    const outdated = frozenBranchesOutsideList_(sh);
+    if (outdated.length) {
+      throw new Error('Cette affectation a été figée avec des spécialités qui ne sont plus dans la liste (' + outdated.join(', ') + ') : figez-en une nouvelle.');
+    }
     PropertiesService.getScriptProperties().setProperty(PUBLISHED_SHEET_PROPERTY,
       JSON.stringify({ sheet: sheet, at: new Date().toISOString(), by: admin }));
     return {
@@ -2480,6 +2791,20 @@ function adminPublishResults(req) {
       official: true
     };
   });
+}
+
+// [V2] Filières affectées dans une feuille figée qui ne font plus partie de la liste des spécialités
+function frozenBranchesOutsideList_(sh) {
+  const width = Math.max(1, Math.min(allocationHeaders_(MAX_BRANCHES).length, sh.getMaxColumns()));
+  const header = sh.getRange(1, 1, 1, width).getValues()[0].map(squash_);
+  const col = header.indexOf(squash_('Filière affectée'));
+  if (col === -1) return [];
+  const out = [];
+  readRows_(sh, width).forEach(function(row) {
+    const b = String(row[col] === undefined || row[col] === null ? '' : row[col]).trim();
+    if (b && BRANCHES.indexOf(b) === -1 && out.indexOf(b) === -1) out.push(b);
+  });
+  return out;
 }
 
 function adminUnpublishResults() {
@@ -2543,7 +2868,7 @@ function adminSendReminders(req) {
   const results = snap.rows.filter(function(r) { return !r.c && r.e; }).map(function(r) {
     if (quota <= 0) return { name: r.h, email: r.e, status: 'SKIPPED', error: 'Quota quotidien atteint' };
     try {
-      MailApp.sendEmail({ to: r.e, subject: fill(subject, r.h), body: fill(body, r.h), replyTo: admin, name: MAIL_SENDER_NAME });
+      MailApp.sendEmail({ to: r.e, subject: fill(subject, r.h), body: fill(body, r.h), replyTo: admin, name: 'Coordination ' + PROGRAM.name });
       quota--;
       return { name: r.h, email: r.e, status: 'SENT', error: null };
     } catch (e) {
@@ -2566,6 +2891,210 @@ function adminSendReminders(req) {
     results: results,
     sent: sent, failed: failed, skipped: skipped
   };
+}
+
+// =========================================================================
+// [V2] FORMATION ET SPÉCIALITÉS
+// Renommer garde la place de la spécialité dans chaque classement enregistré ; une spécialité
+// ajoutée est placée en dernier choix ; une spécialité retirée disparaît des classements (l'ordre
+// des autres est conservé). Les affectations déjà figées restent telles qu'elles ont été figées.
+// =========================================================================
+
+/**
+ * req = { name, classSize, base: [liste en vigueur vue par l'interface],
+ *         branches: [{ from: nom en vigueur, ou null pour une nouvelle spécialité ; name: nom voulu }] }
+ */
+function adminSetProgram(req) {
+  const admin = requireAdmin_();
+  req = req || {};
+  const name = cleanText_(req.name, PROGRAM_NAME_MAX_LENGTH, 'Le nom de la formation');
+  if (!name) throw new Error('Indiquez le nom de la formation (par exemple « CI2 RST »).');
+  const classSize = toInt_(req.classSize);
+  if (classSize === null || classSize < 1 || classSize > 999) throw new Error("L'effectif attendu doit être un nombre entier entre 1 et 999.");
+  if (!Array.isArray(req.branches) || !Array.isArray(req.base)) throw new Error('Liste des spécialités invalide : rechargez la page.');
+  const items = req.branches.map(function(it) {
+    return {
+      from: it && typeof it.from === 'string' && it.from ? it.from : null,
+      name: cleanText_(it && it.name, BRANCH_NAME_MAX_LENGTH, "Le nom d'une spécialité").replace(/\s+/g, ' ')
+    };
+  });
+  const next = items.map(function(it) { return it.name; });
+  const problem = branchListProblem_(next);
+  if (problem) throw new Error('Liste des spécialités refusée : ' + problem + '.');
+  const base = req.base.map(String);
+
+  return adminWrite_(admin, 'FORMATION', function(ss, props) {
+    const current = BRANCHES.slice();
+    const before = { name: PROGRAM.name, classSize: PROGRAM.classSize };
+    const stale = 'La liste des spécialités a changé entre-temps (autre onglet ou autre administrateur) : rechargez la page.';
+    if (!sameList_(base, current)) throw new Error(stale);
+    const kept = {};
+    items.forEach(function(it) {
+      if (it.from === null) return;
+      if (current.indexOf(it.from) === -1 || kept[it.from]) throw new Error(stale);
+      kept[it.from] = true;
+    });
+    // Une spécialité retirée puis ajoutée sous le même nom est simplement conservée
+    items.forEach(function(it) {
+      if (it.from !== null) return;
+      const same = current.filter(function(b) { return !kept[b] && branchKey_(b) === branchKey_(it.name); });
+      if (same.length) { it.from = same[0]; kept[same[0]] = true; }
+    });
+    const rename = {};
+    items.forEach(function(it) { if (it.from !== null && it.from !== it.name) rename[it.from] = it.name; });
+    const removed = current.filter(function(b) { return !kept[b]; });
+    const added = items.filter(function(it) { return it.from === null; }).map(function(it) { return it.name; });
+    const branchesChanged = !sameList_(current, next);
+
+    if (branchesChanged) {
+      assertNotPublished_(props);
+      const forced = readOverrides_(ss);
+      const blocked = removed.map(function(b) {
+        const n = Object.keys(forced).filter(function(k) { return forced[k].branch === b; }).length;
+        return n ? plainCount_(n, 'en ', 'en ') + b : null;
+      }).filter(function(x) { return !!x; });
+      if (blocked.length) {
+        throw new Error('Des affectations imposées concernent une spécialité retirée (' + blocked.join(', ') + ") : retirez-les d'abord.");
+      }
+      const N = readSnapshot_(ss).rows.length;
+      const rules = rules_(props);
+      if (N > 0 && next.length * rules.max < N) {
+        throw new Error('Avec ' + next.length + ' spécialités et un plafond de ' + rules.max + ', il n’y aurait que ' + (next.length * rules.max) +
+          ' places pour ' + N + " étudiants : relevez d'abord le plafond (Règles de répartition).");
+      }
+      if (N > 0 && next.length * rules.min > N) {
+        throw new Error('Avec ' + next.length + ' spécialités et un minimum de ' + rules.min + ', il faudrait au moins ' + (next.length * rules.min) +
+          ' étudiants (' + N + " inscrits) : baissez d'abord le minimum (Règles de répartition).");
+      }
+    }
+
+    // Feuilles : Preferences (toujours à la disposition de la nouvelle liste), Historique, Surcharges
+    let changed = [];
+    const prefsSheet = getOrCreateSheet_(ss, PREFERENCES_SHEET);
+    const relaid = prefsLayout_(prefsSheet).choices !== next.length; // disposition à réparer (modification à la main)
+    if (branchesChanged || relaid) {
+      changed = relayoutPreferences_(prefsSheet, current, next, rename, removed, added);
+    }
+    if (branchesChanged) {
+      migrateHistory_(ss, next.length, rename, changed, new Date(), admin);
+      renameOverrides_(ss, rename);
+    }
+
+    const store = PropertiesService.getScriptProperties();
+    setOrDefault_(PROGRAM_NAME_PROPERTY, name, DEFAULT_PROGRAM_NAME);
+    if (sameList_(next, DEFAULT_BRANCHES)) store.deleteProperty(SPECIALTIES_PROPERTY);
+    else store.setProperty(SPECIALTIES_PROPERTY, JSON.stringify(next));
+    setOrDefault_(CLASS_SIZE_PROPERTY, classSize, CLASS_SIZE);
+
+    const parts = [];
+    if (name !== before.name) parts.push('formation « ' + before.name + ' » → « ' + name + ' »');
+    Object.keys(rename).forEach(function(b) { parts.push('« ' + b + ' » renommée « ' + rename[b] + ' »'); });
+    added.forEach(function(b) { parts.push('« ' + b + ' » ajoutée'); });
+    removed.forEach(function(b) { parts.push('« ' + b + ' » retirée'); });
+    if (branchesChanged && !added.length && !removed.length && !Object.keys(rename).length) parts.push('ordre des spécialités modifié');
+    if (classSize !== before.classSize) parts.push('effectif attendu ' + before.classSize + ' → ' + classSize);
+    if (relaid && !branchesChanged) parts.push('feuille Preferences remise à ' + next.length + ' colonnes de choix');
+    if (!parts.length) {
+      return { notice: PROGRAM.branchesInvalid ? 'Liste des spécialités réenregistrée.' : 'Aucune modification.', details: PROGRAM.branchesInvalid ? 'Liste des spécialités réenregistrée : ' + next.join(', ') : null, official: true };
+    }
+    let notice = capitalizeFr_(parts.join(' ; ')) + '.';
+    if (changed.length) {
+      notice += ' ' + plainCount_(changed.length, 'classement enregistré mis à jour', 'classements enregistrés mis à jour') +
+        (added.length ? ' (' + added.join(', ') + ' en dernier choix)' : '') + '.';
+      notice += choicesLock_(props).locked
+        ? ' Les choix sont clos : rouvrez-les si les étudiants doivent pouvoir revoir leur classement.'
+        : ' Les étudiants peuvent revoir leur classement.';
+    }
+    return {
+      notice: notice,
+      details: capitalizeFr_(parts.join(' ; ')) + (branchesChanged ? ' — liste : ' + next.join(', ') : '') +
+        (changed.length ? ' — ' + plainCount_(changed.length, 'classement mis à jour', 'classements mis à jour') : ''),
+      official: true
+    };
+  });
+}
+
+function migrateRanking_(c, rename, removed, added) {
+  return c.filter(function(b) { return removed.indexOf(b) === -1; })
+    .map(function(b) { return rename[b] || b; })
+    .concat(added);
+}
+
+/**
+ * Réécrit Preferences (en-tête compris) pour la nouvelle liste, en un appel groupé.
+ * Les classements valables sont convertis ; une ligne déjà illisible est recopiée telle quelle
+ * (noms renommés) à la nouvelle largeur. Renvoie les classements modifiés par un ajout ou un retrait.
+ */
+function relayoutPreferences_(sh, current, next, rename, removed, added) {
+  const layout = prefsLayout_(sh);
+  const last = sh.getLastRow();
+  const data = last >= 2 ? sh.getRange(2, 1, last - 1, layout.width).getValues() : [];
+  const changed = [];
+  const width = next.length + 2;
+  const rows = data.map(function(row) {
+    const raw = row.slice(1, 1 + layout.choices);
+    const valid = normalizeChoicesIn_(raw, current);
+    let cells;
+    if (valid) {
+      cells = migrateRanking_(valid, rename, removed, added);
+      if (removed.length || added.length) changed.push({ name: String(row[0]).trim(), choices: cells });
+    } else {
+      cells = raw.map(function(v) { return typeof v === 'string' && rename[v.trim()] ? rename[v.trim()] : v; });
+    }
+    cells = cells.slice(0, next.length);
+    while (cells.length < next.length) cells.push('');
+    return [row[0]].concat(cells, [row[layout.ts]]);
+  });
+  const header = ['Nom'].concat(choiceHeaders_(next.length), ['Timestamp']);
+  if (sh.getMaxColumns() < width) sh.insertColumnsAfter(sh.getMaxColumns(), width - sh.getMaxColumns());
+  sh.getRange(1, 1, rows.length + 1, width).setValues([header].concat(rows.map(function(r) { return r.map(sanitizeCell_); })));
+  if (layout.width > width) sh.getRange(1, width + 1, rows.length + 1, layout.width - width).clearContent();
+  return changed;
+}
+
+// Historique : colonnes ajoutées si besoin, noms renommés partout, une ligne SPECIALITES par classement modifié
+function migrateHistory_(ss, count, rename, changed, when, admin) {
+  let sh = ss.getSheetByName(HISTORY_SHEET);
+  if (!sh) {
+    if (!changed.length) return;
+    sh = getOrCreateSheet_(ss, HISTORY_SHEET);
+  }
+  const layout = ensureHistoryColumns_(sh, count);
+  const last = sh.getLastRow();
+  if (Object.keys(rename).length && last >= 2) {
+    const range = sh.getRange(2, 3, last - 1, layout.choices);
+    let touched = false;
+    const values = range.getValues().map(function(row) {
+      return row.map(function(v) {
+        const t = typeof v === 'string' ? v.trim() : null;
+        if (t && rename[t]) { touched = true; return rename[t]; }
+        return sanitizeCell_(v);
+      });
+    });
+    if (touched) range.setValues(values);
+  }
+  if (changed.length) {
+    const start = sh.getLastRow() + 1;
+    const end = start + changed.length - 1;
+    if (end > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), end - sh.getMaxRows());
+    sh.getRange(start, 1, changed.length, layout.width).setValues(changed.map(function(c) {
+      return historyRow_(layout, when, c.name, c.choices, 'SPECIALITES', admin);
+    }));
+  }
+}
+
+// Surcharges : filière renommée dans toutes les lignes (actives ou non)
+function renameOverrides_(ss, rename) {
+  const sh = ss.getSheetByName(OVERRIDES_SHEET);
+  if (!sh || !Object.keys(rename).length || sh.getLastRow() < 2) return;
+  const range = sh.getRange(2, 2, sh.getLastRow() - 1, 1);
+  let touched = false;
+  const values = range.getValues().map(function(row) {
+    const t = typeof row[0] === 'string' ? row[0].trim() : null;
+    if (t && rename[t]) { touched = true; return [rename[t]]; }
+    return [sanitizeCell_(row[0])];
+  });
+  if (touched) range.setValues(values);
 }
 
 // =========================================================================
@@ -2594,6 +3123,18 @@ function setupSheets() {
         done.push('en-tête « Email » ajouté en ' + SHEET_NAME + '!C1');
       }
     }
+    // [V2] Preferences et Historique : une colonne de choix par spécialité de la liste en vigueur
+    const prefsSheet = ss.getSheetByName(PREFERENCES_SHEET);
+    const found = prefsSheet ? prefsLayout_(prefsSheet).choices : BRANCHES.length;
+    if (prefsSheet && found !== BRANCHES.length) {
+      relayoutPreferences_(prefsSheet, BRANCHES, BRANCHES, {}, [], []);
+      done.push('Preferences remise à ' + BRANCHES.length + ' colonnes de choix (' + found + ' trouvées) : les classements incomplets sont à refaire');
+    }
+    const historySheet = ss.getSheetByName(HISTORY_SHEET);
+    if (historySheet && historyLayout_(historySheet).choices < BRANCHES.length) {
+      ensureHistoryColumns_(historySheet);
+      done.push('colonnes de choix ajoutées à ' + HISTORY_SHEET);
+    }
     // [V2] Aucune valeur par défaut n'est plus écrite : une propriété absente vaut sa valeur par défaut.
     // Celles qu'une version précédente avait figées à leur valeur par défaut sont retirées.
     const store = PropertiesService.getScriptProperties();
@@ -2619,8 +3160,10 @@ function syntheticRows_(n, seed) {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-  const perms = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
-  const weights = [0.30, 0.20, 0.17, 0.08, 0.15, 0.10];
+  // [V2] Avec 3 filières : jeu d'origine ; sinon tous les classements, à poids égaux
+  const three = BRANCHES.length === 3;
+  const perms = three ? [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]] : rankingsOf_(BRANCHES.map(function(b, k) { return k; }));
+  const weights = three ? [0.30, 0.20, 0.17, 0.08, 0.15, 0.10] : perms.map(function() { return 1 / perms.length; });
   const rows = [];
   for (let i = 0; i < n; i++) {
     let g = Math.round((9 + rand() * 9) * 100) / 100;
@@ -2655,15 +3198,21 @@ function selfTest() {
     Logger.log((ok ? 'PASS' : 'FAIL') + ' — ' + label + (detail ? ' (' + detail + ')' : ''));
   };
 
-  [defaultRules_(), { min: 20, max: 30 }, { min: 12, max: 24 }].forEach(function(r) {
+  // [V2] Règles testées : celles d'origine avec 3 filières, sinon des règles réalisables pour n filières
+  const N = rows.length, B = BRANCHES.length;
+  const share = Math.ceil(N / B);
+  const ruleSets = B === 3
+    ? [defaultRules_(), { min: 20, max: 30 }, { min: 12, max: 24 }]
+    : [{ min: Math.max(0, Math.floor(N / B) - 4), max: share + 6 }, { min: 0, max: share }, { min: Math.floor(N / B), max: share + 12 }];
+  ruleSets.forEach(function(r) {
     const a = allocate_(rows, r, {}, {}, 'LAST');
-    const floor = Math.max(r.min, rows.length - 2 * r.max);
+    const floor = floorSeats_(r, rows.length);
     const bad = BRANCHES.filter(function(b) { return a.counts[b] > r.max || a.counts[b] < floor; });
     check('(a) règles ' + r.min + '/' + r.max + ' : aucune filière au-dessus de ' + r.max + ' ni sous le plancher ' + floor,
       bad.length === 0, BRANCHES.map(function(b) { return b + ' = ' + a.counts[b]; }).join(', '));
   });
 
-  const rules = defaultRules_();
+  const rules = ruleSets[0];
   const snap = { rows: rows };
   const alloc = allocate_(rows, rules, {}, {}, 'LAST');
   const issues = [];
