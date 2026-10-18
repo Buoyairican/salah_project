@@ -131,6 +131,16 @@
       <p id="closedText" class="text-lg sm:text-xl font-medium text-slate-800 leading-relaxed">Vous pourrez bientôt choisir vos options de spécialité sur cette page.</p>
     </section>
 
+    <!-- [V2] Étudiant non reconnu : absent de la liste officielle (vérifié même page fermée) -->
+    <section id="deniedView" class="is-hidden max-w-xl mx-auto bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 text-center">
+      <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+      </div>
+      <h2 class="text-xl font-semibold text-slate-900">Accès non autorisé</h2>
+      <p id="deniedText" class="mt-3 text-slate-600 break-words"></p>
+      <p class="mt-4 text-sm text-slate-500">S’il s’agit d’une erreur, contactez la coordination de la filière.</p>
+    </section>
+
     <!-- Pas de note : seule cette carte est affichée -->
     <section id="noGradeView" class="is-hidden max-w-xl mx-auto bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 text-center">
       <svg class="w-12 h-12 mx-auto mb-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -485,7 +495,7 @@
       settle(kind);
       state = null;
       lastUpdateAt = 0;
-      ['dashView', 'closedView', 'adminView', 'noGradeView', 'announcementBox', 'officialCard', 'disclaimer', 'staleBanner'].forEach(function (id) { show($(id), false); });
+      ['dashView', 'closedView', 'deniedView', 'adminView', 'noGradeView', 'announcementBox', 'officialCard', 'disclaimer', 'staleBanner'].forEach(function (id) { show($(id), false); });
       $('bootErrorText').textContent = 'Cette page a été mise à jour : rechargez-la (ou rouvrez le lien).';
       show($('bootView'), true);
       show($('bootLoading'), false);
@@ -512,7 +522,8 @@
         handleError(new Error('Réponse inattendue du serveur. Réessayez dans un instant.'), kind, id);
         return;
       }
-      if (res.access !== 'NO_GRADE' && res.access !== 'OK' && res.access !== 'ADMIN' && res.access !== 'CLOSED') {
+      // [V2] access 'DENIED' : étudiant absent de la liste officielle (message du serveur)
+      if (res.access !== 'NO_GRADE' && res.access !== 'OK' && res.access !== 'ADMIN' && res.access !== 'CLOSED' && res.access !== 'DENIED') {
         showReloadNeeded(kind); // [V2]
         return;
       }
@@ -578,7 +589,8 @@
       errorKind = kind;
       errorCtx = kind === 'action' ? null : stateKey(state); // [V2]
       // Dans la vue « pas de note », la carte d'erreur du chargement sert de zone d'erreur
-      if (!isOk() && state) {
+      // [V2] Page d'attente ou refus : rien ne s'empile sur la carte (l'état de synchronisation le signale)
+      if (!isOk() && state && state.access !== 'CLOSED' && state.access !== 'DENIED') {
         $('bootErrorText').textContent = msg;
         show($('bootView'), true);
         show($('bootLoading'), false);
@@ -701,8 +713,13 @@
       // [V2] Annonce et résultat officiel : seulement dans la vue étudiant ; compte administrateur à part
       show($('announcementBox'), false);
       show($('officialCard'), false);
+      show($('deniedView'), false); // [V2]
       if (state.access === 'ADMIN') {
         renderAdmin();
+        return;
+      }
+      if (state.access === 'DENIED') {
+        renderDenied();
         return;
       }
       show($('adminView'), false);
@@ -773,6 +790,15 @@
       $('closedText').textContent = typeof state.message === 'string' && state.message ? state.message : 'Vous pourrez bientôt choisir vos options de spécialité sur cette page.';
       show($('closedView'), true);
       renderAnnouncement();
+      syncBusyUI();
+    }
+
+    // [V2] Étudiant non reconnu : seule la carte de refus, mise à jour à chaque actualisation
+    function renderDenied() {
+      ['dashView', 'closedView', 'adminView', 'noGradeView', 'disclaimer'].forEach(function (id) { show($(id), false); });
+      show($('syncBar'), true);
+      $('deniedText').textContent = typeof state.message === 'string' && state.message ? state.message : 'Votre adresse ne correspond à aucun étudiant de la liste officielle.';
+      show($('deniedView'), true);
       syncBusyUI();
     }
 
@@ -1263,7 +1289,7 @@
     // =====================================================================
     function createMock() {
       var q = new URLSearchParams(location.search);
-      var SCENARIOS = ['SECURE', 'FALLBACK_SECURED', 'VULNERABLE', 'NO_CHOICES', 'NO_GRADE', 'LOCKED', 'ADMIN', 'PUBLISHED', 'CLOSED']; // [V2]
+      var SCENARIOS = ['SECURE', 'FALLBACK_SECURED', 'VULNERABLE', 'NO_CHOICES', 'NO_GRADE', 'LOCKED', 'ADMIN', 'PUBLISHED', 'CLOSED', 'DENIED']; // [V2]
       var sc = String(q.get('mock') || 'SECURE').toUpperCase();
       if (SCENARIOS.indexOf(sc) === -1) sc = 'SECURE';
       var skewMs = (Number(q.get('skew')) || 0) * 60000;
@@ -1360,6 +1386,7 @@
 
       function buildState(choices) {
         if (sc === 'ADMIN') return { access: 'ADMIN', adminUrl: ADMIN_URL, program: PROGRAM }; // [V2]
+        if (sc === 'DENIED') return { access: 'DENIED', message: 'Accès refusé : votre adresse institutionnelle ne correspond à aucun étudiant inscrit sur la liste officielle ' + PROGRAM.name + '.', program: PROGRAM, serverTime: new Date(now()).toISOString() }; // [V2]
         if (pageClosed()) return { access: 'CLOSED', message: 'Vous pourrez bientôt choisir vos options de spécialité sur cette page.', program: PROGRAM, announcement: ANNOUNCEMENT, serverTime: new Date(now()).toISOString(), timeZone: 'Africa/Casablanca' }; // [V2]
         if (!db.hasGrade) {
           return { access: 'NO_GRADE', formUrl: FORM_URL,
@@ -1406,7 +1433,7 @@
        ['NO_CHOICES', '?mock=NO_CHOICES'], ['NO_GRADE', '?mock=NO_GRADE'], ['LOCKED', '?mock=LOCKED'],
        ['fermé sans date', '?mock=SECURE&deadline=none&locked=1'], ['sans date limite', '?mock=SECURE&deadline=none'],
        ['échéance 15 s', '?mock=SECURE&deadline=soon'], ['erreur enregistrement', '?mock=VULNERABLE&fail=save'],
-       ['ADMIN', '?mock=ADMIN'], ['CLOSED', '?mock=CLOSED&annonce=info'], ['réouverture après 20 s', '?mock=CLOSED&ouvre=20&poll=5'], ['PUBLISHED', '?mock=PUBLISHED'], ['absent de la liste publiée', '?mock=PUBLISHED&absent=1'],
+       ['ADMIN', '?mock=ADMIN'], ['DENIED', '?mock=DENIED'], ['CLOSED', '?mock=CLOSED&annonce=info'], ['réouverture après 20 s', '?mock=CLOSED&ouvre=20&poll=5'], ['PUBLISHED', '?mock=PUBLISHED'], ['absent de la liste publiée', '?mock=PUBLISHED&absent=1'],
        ['annonce', '?mock=VULNERABLE&annonce=warning']
       ].forEach(function (s, i) {
         if (i) banner.appendChild(document.createTextNode(' · '));
