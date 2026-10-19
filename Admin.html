@@ -2470,7 +2470,7 @@
                 return h('li', { class: 'py-1.5 flex justify-between gap-3' }, [h('span', { class: 'text-slate-900', text: x.name }), h('span', { class: 'text-slate-500 truncate', text: x.email })]);
               })) : h('p', { class: 'text-sm text-slate-500', text: 'Aucun destinataire.' }),
               d.missingEmail.length ? h('div', { class: 'mt-4' }, [
-                h('div', { class: 'text-xs font-semibold text-amber-800 mb-1', text: 'Sans adresse (colonne C de Responses vide ou invalide) :' }),
+                h('div', { class: 'text-xs font-semibold text-amber-800 mb-1', text: 'Sans adresse (colonne Email de Responses vide ou invalide) :' }),
                 h('p', { class: 'text-sm text-slate-600', text: d.missingEmail.join(' · ') })
               ]) : null
             ], { icon: 'users' })
@@ -2516,10 +2516,10 @@
       listCard('Choix illisibles', 'Lignes de Preferences dont le classement des ' + branches().length + ' filières n’est pas valable.', x.invalidPreferences, function (d) {
         return [h('span', { class: 'font-medium text-slate-900', text: d.name }), ' — lignes ' + d.rows.join(', ')];
       });
-      listCard('Noms qui peuvent se confondre', 'Sans colonne Email, l’adresse de l’un peut correspondre aux deux noms : l’étudiant serait refusé. Renseignez leur adresse en colonne C.', x.ambiguousNames, function (p) {
+      listCard('Noms qui peuvent se confondre', 'Sans adresse dans la colonne Email, l’adresse de l’un peut correspondre aux deux noms : l’étudiant serait refusé. Renseignez leur adresse dans la colonne Email.', x.ambiguousNames, function (p) {
         return [h('span', { class: 'font-medium text-slate-900', text: p.a }), h('span', { class: 'text-slate-400', text: '  ↔  ' }), h('span', { class: 'font-medium text-slate-900', text: p.b })];
       });
-      listCard('Adresses e-mail ignorées', 'Adresses de la colonne C non utilisées pour la connexion (appariement par nom à la place).', x.badEmails, function (b) {
+      listCard('Adresses e-mail ignorées', 'Adresses de la colonne Email non utilisées pour la connexion (recherche par le nom à la place).', x.badEmails, function (b) {
         return [h('span', { class: 'font-medium text-slate-900', text: b.name }), ' — ', h('code', { class: 'text-xs', text: b.email }), b.why ? h('span', { class: 'text-slate-500', text: ' (' + b.why + ')' }) : null];
       });
       listCard('Affectations imposées orphelines', 'Noms de Surcharges absents de Responses.', x.staleOverrides, function (n) { return n; });
@@ -2540,9 +2540,9 @@
         var rr = te.result;
         if (rr.isAdmin) verdict = callout('info', 'Adresse d’administrateur : elle ouvre cet espace de gestion, pas le tableau de bord étudiant.');
         else if (!rr.domainOk) verdict = callout('danger', 'Adresse hors du domaine @uit.ac.ma : la connexion est refusée.');
-        else if (rr.verdict === 'OK') verdict = callout('success', h('p', null, ['Connexion acceptée : ', h('strong', { class: 'font-semibold', text: rr.matches[0] }), rr.via === 'EMAIL_COLUMN' ? ' (adresse trouvée en colonne Email).' : ' (appariement par le nom).']));
-        else if (rr.verdict === 'AMBIGUOUS') verdict = callout('warning', h('p', null, ['Ambiguë : correspond à ' + rr.matches.join(', ') + '. La connexion est refusée. Renseignez l’adresse exacte en colonne C de Responses.']));
-        else verdict = callout('danger', 'Aucune correspondance : la connexion est refusée. Vérifiez l’orthographe du nom ou renseignez l’adresse en colonne C de Responses.');
+        else if (rr.verdict === 'OK') verdict = callout('success', h('p', null, ['Connexion acceptée : ', h('strong', { class: 'font-semibold', text: rr.matches[0] }), rr.via === 'EMAIL_COLUMN' ? ' (adresse trouvée dans la colonne Email).' : ' (adresse absente de la colonne Email : trouvé par le prénom et le nom).']));
+        else if (rr.verdict === 'AMBIGUOUS') verdict = callout('warning', h('p', null, ['Ambiguë : correspond à ' + rr.matches.join(', ') + '. La connexion est refusée. Renseignez l’adresse exacte dans la colonne Email de Responses.']));
+        else verdict = callout('danger', 'Aucune correspondance : la connexion est refusée. Vérifiez l’orthographe du nom ou renseignez l’adresse dans la colonne Email de Responses.');
       }
       var tester = card('Tester une adresse de connexion', null, h('div', { class: 'space-y-3' }, [
         h('div', { class: 'flex flex-col sm:flex-row gap-2' }, [inp, btn(te.loading ? 'Test…' : 'Tester', { variant: 'primary', disabled: te.loading, onClick: runTest })]),
@@ -2575,7 +2575,7 @@
         h('div', { class: 'grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6' }, [
           tile('Étudiants chargés', x.loaded + ' / ' + x.expected, x.loaded === x.expected, x.loaded === x.expected ? 'conforme à l’effectif officiel' : 'écart avec l’effectif attendu'),
           tile('Lignes écartées', String((x.skipped || []).length), !(x.skipped || []).length, 'nom vide, doublon ou note illisible'),
-          tile('Colonne Email', ec.present ? ec.filled + ' / ' + x.loaded : 'Absente', true, ec.present ? 'adresses utilisées pour la connexion' : 'appariement par le nom uniquement'),
+          tile('Colonne Email', ec.present ? ec.filled + ' / ' + x.loaded : 'Absente', true, ec.present ? (ec.column ? 'colonne ' + ec.column + ', vérifiée en premier' : 'vérifiée en premier') : 'recherche par le nom uniquement'),
           tile('Anomalies de choix', String((x.orphanPreferences || []).length + (x.duplicatePreferences || []).length + (x.invalidPreferences || []).length), !((x.orphanPreferences || []).length + (x.duplicatePreferences || []).length + (x.invalidPreferences || []).length), 'orphelins, doublons, illisibles')
         ]),
         h('div', { class: 'grid grid-cols-1 xl:grid-cols-2 gap-6 items-start' }, [
@@ -3044,7 +3044,7 @@
             .slice(0, 3).forEach(function (k) { bubble.push({ branch: b, kind: 'FIRST_REJECTED', name: students[k].name, grade: students[k].grade, rank: a.res[k].rank }); });
         });
         var filled = students.filter(function (x) { return x.email; }).length;
-        var mailReason = filled ? (db.quota <= 0 ? "Quota d'envoi quotidien épuisé : réessayez demain." : null) : 'Renseignez la colonne C « Email » de la feuille Responses pour envoyer des rappels.';
+        var mailReason = filled ? (db.quota <= 0 ? "Quota d'envoi quotidien épuisé : réessayez demain." : null) : 'Renseignez la colonne « Email » de la feuille Responses pour envoyer des rappels.';
         return copy({
           access: 'ADMIN', me: { email: ADMIN }, serverTime: iso(Date.now()), timeZone: TZ,
           config: {
@@ -3082,7 +3082,7 @@
           health: {
             loaded: N, expected: PROGRAM.classSize, publishedSheetMissing: false, specialtiesInvalid: false, preferencesLayout: null,
             staleProperties: mockProps().filter(function (x) { return x.stale; }).map(function (x) { return x.key; }), skipped: db.skipped, orphanPreferences: db.orphans, duplicatePreferences: db.dups, invalidPreferences: db.invalid,
-            ambiguousNames: db.ambiguous, emailColumn: { present: true, filled: filled }, badEmails: db.badEmails, staleOverrides: [], forcedOverflow: [], staleTieBreaks: []
+            ambiguousNames: db.ambiguous, emailColumn: { present: true, filled: filled, column: 'C', header: 'Email' }, badEmails: db.badEmails, staleOverrides: [], forcedOverflow: [], staleTieBreaks: []
           },
           roster: a.order.map(function (k) {
             var x = students[k], r = a.res[k], hh = historyOf(x.name), lastH = hh[hh.length - 1], flags = [];
@@ -3240,8 +3240,17 @@
           var byEmail = students.filter(function (x) { return x.email === e; }).map(function (x) { return x.name; });
           var out = { email: e, isAdmin: e === ADMIN, domainOk: /@uit\.ac\.ma$/.test(e) };
           if (byEmail.length) { out.verdict = byEmail.length === 1 ? 'OK' : 'AMBIGUOUS'; out.via = 'EMAIL_COLUMN'; out.matches = byEmail; return out; }
-          var pieces = e.split('@')[0].split('.').map(squash).filter(function (p) { return p; });
-          var m = pieces.length ? students.filter(function (x) { return !x.email && pieces.every(function (p) { return squash(x.name).indexOf(p) !== -1; }); }).map(function (x) { return x.name; }) : [];
+          // Comme Code.gs : prénom et nom en mots entiers d'abord, sinon morceaux contenus dans le nom
+          var pieces = e.split('@')[0].split(/[._]+/).map(squash).filter(function (p) { return p; });
+          var words = function (n) { return String(n).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z]+/).filter(function (w) { return w; }); };
+          var run = function (p, ws) {
+            for (var a = 0; a < ws.length; a++) { var r = ''; for (var b = a; b < ws.length && r.length < p.length; b++) { r += ws[b]; if (r === p) return true; } }
+            return false;
+          };
+          var plain = pieces.length ? students.filter(function (x) { return !x.email; }) : [];
+          var whole = plain.filter(function (x) { var ws = words(x.name); return pieces.every(function (p) { return run(p, ws); }); });
+          var loose = plain.filter(function (x) { return pieces.every(function (p) { return squash(x.name).indexOf(p) !== -1; }); });
+          var m = (whole.length ? whole : loose).map(function (x) { return x.name; });
           out.verdict = m.length === 1 ? 'OK' : m.length ? 'AMBIGUOUS' : 'NONE'; out.via = 'NAME_PIECES'; out.matches = m;
           return out;
         },
@@ -3251,7 +3260,7 @@
           return copy({
             recipients: pend.filter(function (x) { return x.email; }).map(function (x) { return { name: x.name, email: x.email }; }),
             missingEmail: pend.filter(function (x) { return !x.email; }).map(function (x) { return x.name; }),
-            remainingQuota: db.quota, available: filled > 0 && db.quota > 0, reason: filled ? null : 'Renseignez la colonne C « Email » de la feuille Responses pour envoyer des rappels.',
+            remainingQuota: db.quota, available: filled > 0 && db.quota > 0, reason: filled ? null : 'Renseignez la colonne « Email » de la feuille Responses pour envoyer des rappels.',
             defaultSubject: 'Rappel : classez vos filières de spécialité (' + PROGRAM.name + ')',
             defaultBody: 'Bonjour {nom},\n\nVous n\'avez pas encore enregistré votre classement des filières de spécialité (' + BR.join(', ') + ').\n\nDate limite : {date_limite}\nLien : {lien}\n\nConnectez-vous avec votre compte @uit.ac.ma, classez les ' + (['deux', 'trois', 'quatre'][BR.length - 2] || BR.length) + ' filières, puis appuyez sur « Enregistrer mes choix ».\n\nCordialement,\nLa coordination ' + PROGRAM.name
           });

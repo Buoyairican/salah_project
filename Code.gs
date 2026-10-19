@@ -1,5 +1,5 @@
 const DOMAIN = 'uit.ac.ma';
-const SHEET_NAME = 'Responses';          // Feuille officielle : Col A = Nom, Col B = Note, [V2] Col C = Email (optionnelle)
+const SHEET_NAME = 'Responses';          // Feuille officielle : Col A = Nom, Col B = Note, [V2] + colonne Email (optionnelle)
 const PREFERENCES_SHEET = 'Preferences'; // Choix en clair : Nom, Choice_1, Choice_2, Choice_3, Timestamp
 
 // --- Règles d'affectation ---
@@ -25,7 +25,8 @@ let PROGRAM = { name: DEFAULT_PROGRAM_NAME, classSize: CLASS_SIZE, branchesInval
 const DEADLINE_PROPERTY = 'CHOICES_DEADLINE';
 const LOCKED_PROPERTY = 'CHOICES_LOCKED';
 
-const SNAPSHOT_CACHE_KEY = 'snapshot_v7'; // [V2] v7 : + liste des spécialités avec laquelle il a été lu
+const SNAPSHOT_CACHE_KEY = 'snapshot_v8'; // [V2] v8 : colonne Email repérée où qu'elle soit
+const RESPONSES_SCAN_COLUMNS = 26; // [V2] colonnes A..Z de Responses examinées pour trouver la colonne Email
 const SNAPSHOT_CACHE_SECONDS = 30;
 const SAVE_COOLDOWN_SECONDS = 5;
 const MAX_TIE_GROUP = 4;
@@ -97,7 +98,7 @@ const SOURCES = ['ALGO', 'TIEBREAK', 'MANUAL', 'AUTO'];
 // [V2] Historique : origine d'un classement (SPECIALITES = mis à jour après un changement de la liste)
 const HISTORY_SOURCES = ['ETUDIANT', 'ADMIN', 'SPECIALITES'];
 
-const APP_VERSION = 'V2.6 (2026-10-18)'; // [V2] affichée dans l'interface : vérifie que /exec sert la bonne version
+const APP_VERSION = 'V2.7 (2026-10-19)'; // [V2] affichée dans l'interface : vérifie que /exec sert la bonne version
 const WAITING_TEXT = 'Vous pourrez bientôt choisir vos options de spécialité sur cette page.';
 const ACCESS_DENIED_MESSAGE = 'Accès refusé.';
 const UNPUBLISH_FIRST_MESSAGE = "Dépubliez d'abord les résultats.";
@@ -176,26 +177,57 @@ function matchOfficialNameByEmail_(email, rows) {
   return matches.length === 1 ? matches[0] : null;
 }
 
-// [V2] Toutes les lignes dont le Nom contient chaque morceau de la partie locale de l'adresse
-function namePieceMatches_(email, rows) {
+// [V2] Prénom et nom lus dans l'adresse : « salma.alami2@… » → ['salma', 'alami'] (séparateurs . et _)
+function emailNamePieces_(email) {
   const local = String(email || '').split('@')[0];
-  const pieces = local.split('.').map(squash_).filter(function(p) { return p.length > 0; });
+  return local.split(/[._]+/).map(squash_).filter(function(p) { return p.length > 0; });
+}
+
+// [V2] Mots du Nom officiel : « EL AMRANI Mohamed » → ['el', 'amrani', 'mohamed']
+function nameWords_(name) {
+  return String(name || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .split(/[^a-z]+/).filter(function(w) { return w.length > 0; });
+}
+
+// [V2] Le morceau est un mot du Nom, ou plusieurs mots consécutifs collés (« elamrani » = EL AMRANI)
+function wordRunMatch_(piece, words) {
+  for (let a = 0; a < words.length; a++) {
+    let run = '';
+    for (let b = a; b < words.length && run.length < piece.length; b++) {
+      run += words[b];
+      if (run === piece) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * [V2] Lignes dont le Nom contient le prénom et le nom lus dans l'adresse.
+ * D'abord en mots entiers (« said.amine » désigne SAID Amine, pas SAIDI Amine) ; si aucune ligne
+ * ne correspond ainsi, l'ancienne règle s'applique telle quelle (morceaux contenus dans le Nom).
+ */
+function namePieceMatches_(email, rows) {
+  const pieces = emailNamePieces_(email);
   if (pieces.length === 0) return [];
-  const out = [];
+  const whole = [];
+  const loose = [];
   for (let i = 0; i < rows.length; i++) {
     const candidate = squash_(rows[i].h);
     if (!candidate) continue;
-    const allIn = pieces.every(function(p) { return candidate.indexOf(p) !== -1; });
-    if (allIn) out.push(rows[i].h); // Nom exact en clair (ex: "MOUJAHID Salaheddine")
+    const words = nameWords_(rows[i].h);
+    if (pieces.every(function(p) { return wordRunMatch_(p, words); })) whole.push(rows[i].h);
+    if (pieces.every(function(p) { return candidate.indexOf(p) !== -1; })) loose.push(rows[i].h); // Nom exact en clair
   }
-  return out;
+  return whole.length ? whole : loose;
 }
 
 /**
  * [V2] Fonction unique d'identification d'un étudiant, utilisée par la connexion et par adminTestEmail.
- * 1) Une ligne dont la colonne Email vaut exactement l'adresse l'emporte.
- * 2) Sinon, l'appariement par morceaux du nom s'applique aux seules lignes sans e-mail.
- * Sans colonne Email (ou vide), le comportement est identique à la version précédente.
+ * 1) L'adresse est cherchée dans la colonne Email de Responses : la ligne qui la porte l'emporte.
+ * 2) Sinon, le prénom et le nom lus dans l'adresse sont cherchés dans la colonne Nom, parmi les seules
+ *    lignes sans e-mail : une ligne qui porte déjà une adresse n'est jamais attribuée à un autre compte.
+ * Sans colonne Email (ou vide), seule l'étape 2 s'applique.
  */
 function resolveStudent_(email, rows) {
   const target = String(email || '').toLowerCase().trim();
@@ -765,25 +797,76 @@ function desync_(detail) {
   throw new Error(DESYNC_MESSAGE);
 }
 
-// [V2] En-tête de la colonne C reconnu comme colonne e-mail (« Email », « E-mail », « Courriel »…)
+// [V2] En-tête reconnu comme colonne e-mail (« Email », « E-mail », « Adresse mail », « Courriel », « Mél »…)
 function isEmailHeader_(v) {
   const k = squash_(v);
-  return k.indexOf('mail') !== -1 || k.indexOf('courriel') !== -1;
+  return k.indexOf('mail') !== -1 || k.indexOf('courriel') !== -1 || k === 'mel' || k === 'adresseelectronique';
+}
+
+function institutionalEmailPattern_() {
+  return new RegExp('^[a-z0-9._%+\\-]+@' + DOMAIN.replace(/\./g, '\\.') + '$');
+}
+
+function cellEmail_(v) {
+  return String(v === undefined || v === null ? '' : v).trim().toLowerCase();
 }
 
 /**
- * Lit la liste officielle dans Responses [Col A = Nom, Col B = Note, [V2] Col C = Email optionnelle]
+ * [V2] Feuille Responses : Nom (A), Note (B), puis colonnes libres parmi lesquelles la colonne Email,
+ * où qu'elle soit (A..Z). Renvoie {header, rows, email} ; email = indice de la colonne (0 = A) ou -1.
+ */
+function readResponses_(sheet) {
+  const width = Math.min(sheet.getMaxColumns(), Math.max(2, Math.min(RESPONSES_SCAN_COLUMNS, sheet.getLastColumn())));
+  const header = sheet.getLastRow() >= 1 ? sheet.getRange(1, 1, 1, width).getValues()[0] : [];
+  const rows = readRows_(sheet, width);
+  return { header: header, rows: rows, email: findEmailColumn_(header, rows) };
+}
+
+/**
+ * [V2] La colonne Email est celle qui contient les adresses @uit.ac.ma : de préférence sous un en-tête
+ * e-mail ; sinon une colonne faite surtout d'adresses, quel que soit son titre. À défaut d'adresse
+ * valide, la première colonne à en-tête e-mail (ses adresses invalides sont signalées à l'administration).
+ */
+function findEmailColumn_(header, rows) {
+  const pattern = institutionalEmailPattern_();
+  let best = -1;
+  let bestScore = 0;
+  let firstNamed = -1;
+  for (let j = 2; j < header.length; j++) {
+    const named = isEmailHeader_(header[j]);
+    if (named && firstNamed < 0) firstNamed = j;
+    let filled = 0;
+    let valid = 0;
+    for (let i = 0; i < rows.length; i++) {
+      const v = cellEmail_(rows[i][j]);
+      if (!v) continue;
+      filled++;
+      if (pattern.test(v)) valid++;
+    }
+    if (!valid || (!named && valid * 2 < filled)) continue;
+    const score = valid + (named ? rows.length + 1 : 0);
+    if (score > bestScore) { best = j; bestScore = score; }
+  }
+  return best >= 0 ? best : firstNamed;
+}
+
+function columnLetter_(index) {
+  return String.fromCharCode(65 + index);
+}
+
+/**
+ * Lit la liste officielle dans Responses [Col A = Nom, Col B = Note, [V2] colonne Email optionnelle, où qu'elle soit]
  * et les vœux enregistrés dans Preferences [Col A = Nom en clair, Col B..D = Choix, Col E = Date].
  * [V2] diag (optionnel, réservé à l'administration) reçoit les anomalies de Preferences.
  */
 function readSnapshot_(ss, diag) {
   const responsesSheet = ss.getSheetByName(SHEET_NAME);
   if (!responsesSheet) desync_('feuille ' + SHEET_NAME + ' introuvable');
-  // [V2] Largeur bornée par le nombre réel de colonnes de la feuille
-  const width = Math.max(1, Math.min(3, responsesSheet.getMaxColumns()));
-  const header = responsesSheet.getLastRow() >= 1 ? responsesSheet.getRange(1, 1, 1, width).getValues()[0] : [];
-  const emailColumn = width >= 3 && isEmailHeader_(header[2]);
-  const responses = readRows_(responsesSheet, width);
+  // [V2] Colonne Email repérée par son en-tête ou par son contenu (readResponses_)
+  const official = readResponses_(responsesSheet);
+  const responses = official.rows;
+  const emailIndex = official.email;
+  const emailColumn = emailIndex >= 0;
   // [V2] Colonnes de Preferences repérées par l'en-tête : Nom, Choice_1..n, Timestamp
   const prefsSheet = getOrCreateSheet_(ss, PREFERENCES_SHEET);
   const layout = prefsLayout_(prefsSheet);
@@ -811,7 +894,7 @@ function readSnapshot_(ss, diag) {
     Logger.log('Ligne ' + line + ' écartée : ' + why);
     skipped.push({ line: line, why: why });
   };
-  const emailPattern = new RegExp('^[a-z0-9._%+\\-]+@' + DOMAIN.replace(/\./g, '\\.') + '$');
+  const emailPattern = institutionalEmailPattern_();
   const badEmails = [];
   const emailCount = {};
 
@@ -825,10 +908,10 @@ function readSnapshot_(ss, diag) {
     if (seen[key]) { skip(line, 'nom en double : ' + officialName); continue; }
     if (!isFinite(grade)) { skip(line, 'note illisible pour ' + officialName); continue; }
 
-    // [V2] Adresse de la colonne C (minuscules) ; une adresse invalide est ignorée et signalée
+    // [V2] Adresse de la colonne Email (minuscules) ; une adresse invalide est ignorée et signalée
     let email = '';
     if (emailColumn) {
-      const raw = String(responses[i][2] === undefined || responses[i][2] === null ? '' : responses[i][2]).trim().toLowerCase();
+      const raw = cellEmail_(responses[i][emailIndex]);
       if (raw) {
         if (!emailPattern.test(raw)) badEmails.push({ name: officialName, email: raw, why: 'adresse hors @' + DOMAIN + ' ou mal formée' });
         else if (isAdmin_(raw)) badEmails.push({ name: officialName, email: raw, why: "adresse d'un administrateur" });
@@ -869,7 +952,12 @@ function readSnapshot_(ss, diag) {
   return {
     rows: rows,
     skipped: skipped,
-    emailColumn: { present: emailColumn, filled: rows.filter(function(r) { return !!r.e; }).length },
+    emailColumn: {
+      present: emailColumn,
+      filled: rows.filter(function(r) { return !!r.e; }).length,
+      column: emailColumn ? columnLetter_(emailIndex) : null,
+      header: emailColumn ? String(official.header[emailIndex] || '') : null
+    },
     badEmails: badEmails,
     branchesKey: branchesKey_(), // [V2] un cache lu avec une autre liste de spécialités est ignoré
     builtAt: Date.now()
@@ -2121,17 +2209,15 @@ function health_(ctx, alloc) {
   const snap = ctx.snap;
   const rows = snap.rows;
   const diag = ctx.diag || {};
-  // Paires de noms qu'un appariement par morceaux pourrait confondre (lignes sans e-mail)
+  // Paires de noms que l'appariement par le nom pourrait confondre (lignes sans e-mail) :
+  // [V2] tous les mots de l'un se retrouvent, en mots entiers, dans l'autre (cf. namePieceMatches_)
   const ambiguous = [];
   const plain = rows.filter(function(r) { return !r.e; });
-  const words = plain.map(function(r) {
-    return String(r.h).split(/[\s\-'’]+/).map(squash_).filter(function(w) { return w.length >= 2; });
-  });
-  const squashed = plain.map(function(r) { return squash_(r.h); });
+  const words = plain.map(function(r) { return nameWords_(r.h); });
   for (let a = 0; a < plain.length && ambiguous.length < 50; a++) {
     for (let b = a + 1; b < plain.length && ambiguous.length < 50; b++) {
-      const aInB = words[a].length && words[a].every(function(w) { return squashed[b].indexOf(w) !== -1; });
-      const bInA = words[b].length && words[b].every(function(w) { return squashed[a].indexOf(w) !== -1; });
+      const aInB = words[a].length && words[a].every(function(w) { return wordRunMatch_(w, words[b]); });
+      const bInA = words[b].length && words[b].every(function(w) { return wordRunMatch_(w, words[a]); });
       if (aInB || bInA) ambiguous.push({ a: plain[a].h, b: plain[b].h });
     }
   }
@@ -2171,7 +2257,7 @@ function mailInfo_(snap) {
     return { available: false, reason: "Service d'envoi indisponible : autorisez l'envoi d'e-mails depuis l'éditeur.", remainingQuota: null };
   }
   if (!snap.emailColumn || !snap.emailColumn.present || !snap.emailColumn.filled) {
-    return { available: false, reason: 'Renseignez la colonne C « Email » de la feuille Responses pour envoyer des rappels.', remainingQuota: quota };
+    return { available: false, reason: 'Renseignez la colonne « Email » de la feuille Responses pour envoyer des rappels.', remainingQuota: quota };
   }
   if (quota <= 0) {
     return { available: false, reason: "Quota d'envoi quotidien épuisé : réessayez demain.", remainingQuota: quota };
@@ -3183,7 +3269,8 @@ function setupSheets() {
     const responses = ss.getSheetByName(SHEET_NAME);
     if (!responses) {
       done.push('ATTENTION : feuille ' + SHEET_NAME + ' introuvable');
-    } else if (responses.getMaxColumns() >= 3) {
+    } else if (responses.getMaxColumns() >= 3 && readResponses_(responses).email < 0) {
+      // [V2] Aucune colonne Email trouvée : en-tête proposé en C1 si la cellule est vide
       const c1 = responses.getRange(1, 3).getValue();
       if (c1 === '' || c1 === null) {
         responses.getRange(1, 3).setValue('Email');
