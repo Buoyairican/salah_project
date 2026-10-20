@@ -130,7 +130,7 @@
       { id: 'overview', label: "Vue d'ensemble", icon: 'home' },
       { id: 'students', label: 'Étudiants', icon: 'users' },
       { id: 'allocation', label: 'Affectation & égalités', icon: 'scale' },
-      { id: 'whatif', label: 'Simulation des règles', icon: 'beaker' },
+      { id: 'whatif', label: 'Places par filière', icon: 'beaker' },
       { id: 'settings', label: 'Calendrier & accès', icon: 'calendar' },
       { id: 'program', label: 'Paramètres', icon: 'cog' },
       { id: 'results', label: 'Résultats officiels', icon: 'badge' },
@@ -164,7 +164,7 @@
     };
     var ACTION_LABELS = {
       DATE_LIMITE: 'Date limite', VERROU: 'Verrou', PAGE_ETUDIANTE: 'Page étudiante', POLITIQUE_SANS_CHOIX: 'Étudiants sans choix',
-      REGLES: 'Règles de répartition', ANNONCE: 'Annonce', DEPARTAGE: 'Départage', DEPARTAGE_SUPPRIME: 'Départage supprimé',
+      REGLES: 'Places par filière', ANNONCE: 'Annonce', DEPARTAGE: 'Départage', DEPARTAGE_SUPPRIME: 'Départage supprimé',
       CHOIX_ADMIN: 'Choix saisis', AFFECTATION_IMPOSEE: 'Affectation imposée', FIGER: 'Affectation figée',
       PUBLIER: 'Publication', DEPUBLIER: 'Dépublication', RAPPELS: 'Rappels envoyés', REGLAGES_NETTOYES: 'Réglages nettoyés',
       FORMATION: 'Formation et spécialités', ADMINISTRATEURS: 'Administrateurs'
@@ -178,8 +178,9 @@
       STUDENT_PAGE_OPEN: 'Page étudiante ouverte (absente = fermée)',
       CHOICES_DEADLINE: 'Date limite (absente = aucune)',
       CHOICES_LOCKED: 'Verrou manuel (absente = levé)',
-      MIN_SEATS: 'Minimum par filière (absente = 12)',
-      MAX_SEATS: 'Plafond par filière (absente = 26)',
+      MIN_SEATS: 'Minimum commun à toutes les filières (absente = 12)',
+      MAX_SEATS: 'Maximum commun à toutes les filières (absente = 26)',
+      SEAT_LIMITS: 'Places propres à certaines filières (absente = aucune)',
       UNDECIDED_POLICY: 'Étudiants sans choix (absente = placés en dernier)',
       ANNOUNCEMENT: 'Annonce (absente = aucune)',
       FROZEN_SHEETS: 'Affectations figées',
@@ -350,6 +351,18 @@
     // Composants visuels réutilisables
     // =====================================================================
     function branches() { return (ov && ov.config && Array.isArray(ov.config.branches)) ? ov.config.branches : []; }
+    // [V2] Places d'une filière (config.rules.perBranch) : {min, max | null (sans maximum), own, floor, ceiling}
+    function limitOf(b) {
+      var r = ov.config.rules, list = r.perBranch || [];
+      for (var i = 0; i < list.length; i++) if (list[i].branch === b) return list[i];
+      return { branch: b, min: r.min, max: r.max, own: false, floor: r.min, ceiling: r.max };
+    }
+    function maxText(l) { return l.max === null ? 'sans maximum' : String(l.max); }
+    // Mêmes places pour toutes les filières ?
+    function uniformRules() {
+      var list = branches().map(limitOf);
+      return list.every(function (l) { return l.max !== null && l.min === list[0].min && l.max === list[0].max; });
+    }
     function tone(branch) { var i = branches().indexOf(branch); return BRANCH_TONES[i >= 0 ? i % BRANCH_TONES.length : 0]; }
     // [V2] Rangs de choix : [1, 2, …, n]
     function rankList() { return branches().map(function (b, i) { return i + 1; }); }
@@ -530,7 +543,7 @@
     var ui = {
       q: '', filter: 'all', status: 'all',
       tieEdit: null,
-      whatif: { min: null, max: null, result: null, loading: false, error: null },
+      whatif: { rows: null, result: null, loading: false, error: null },
       deadline: null, announcement: null, program: null, newAdmin: '', freezeAck: { notLocked: false, pending: false, ties: false }, publishSheet: null,
       reminders: { data: null, loading: false, error: null, subject: null, body: null, results: null },
       journal: { data: null, loading: false, error: null, offset: 0, limit: 50 },
@@ -942,7 +955,7 @@
       if (ov.health.preferencesLayout) items.push({ kind: 'danger', title: 'Feuille Preferences à remettre en forme', text: 'Elle n’a pas une colonne de choix par spécialité : les enregistrements sont refusés. Réenregistrez la liste des spécialités.', tab: 'program' });
       if (c.deadlineInvalid) items.push({ kind: 'danger', title: 'Date limite illisible', text: 'La propriété CHOICES_DEADLINE est invalide : les choix sont verrouillés. Redéfinissez la date limite.', tab: 'settings' });
       if (ov.allocation.unresolvedTies) items.push({ kind: 'danger', title: plural(ov.allocation.unresolvedTies, 'égalité décisive à départager', 'égalités décisives à départager'), text: "L'ordre alphabétique s'applique tant qu'aucun départage n'est enregistré.", tab: 'allocation' });
-      if (ov.health.forcedOverflow && ov.health.forcedOverflow.length) items.push({ kind: 'danger', title: 'Affectations imposées au-delà du plafond', text: ov.health.forcedOverflow.join(', ') + ' : ignorées par le calcul.', tab: 'allocation' });
+      if (ov.health.forcedOverflow && ov.health.forcedOverflow.length) items.push({ kind: 'danger', title: 'Affectations imposées au-delà du maximum', text: ov.health.forcedOverflow.join(', ') + ' : ignorées par le calcul.', tab: 'allocation' });
       if (ov.participation.pending) items.push({ kind: 'warning', title: plural(ov.participation.pending, 'étudiant sans choix', 'étudiants sans choix'), text: c.undecidedPolicy === 'LAST' ? 'Ils seront placés en dernier, là où il manque du monde.' : 'Ils resteront non placés : décision manuelle requise.', tab: 'students', filter: 'pending' });
       var hc = healthIssueCount();
       if (hc) items.push({ kind: 'warning', title: 'Qualité des données : ' + plural(hc, 'point', 'points') + ' à vérifier', text: 'Lignes écartées, choix orphelins, adresses invalides…', tab: 'health' });
@@ -1061,29 +1074,32 @@
     }
 
     function allocationCard() {
-      var c = ov.config, a = ov.allocation, r = c.rules, N = ov.participation.classSize;
+      var c = ov.config, a = ov.allocation, N = ov.participation.classSize;
       var cols = branches().map(function (b) {
         var pb = a.perBranch[b] || { count: 0, byRank: {}, bySource: {} };
-        var t = tone(b);
+        var t = tone(b), l = limitOf(b), scale = l.max === null ? Math.max(l.ceiling, pb.count, 1) : l.max;
         var extra = ['TIEBREAK', 'MANUAL', 'AUTO'].filter(function (k) { return pb.bySource && pb.bySource[k]; });
         return h('div', { class: 'rounded-xl border border-slate-200 p-4 min-w-0' }, [
           h('div', { class: 'flex items-center justify-between gap-2' }, [
             h('div', { class: 'flex items-center gap-2 min-w-0' }, [h('span', { class: 'w-2.5 h-2.5 rounded-full shrink-0 ' + t.dot }), h('span', { class: 'font-semibold text-slate-900 truncate', text: b })]),
-            pb.full ? badge('Complète', 'bg-red-50 text-red-700 ring-red-200') : badge(plural(pb.seatsLeft, 'place libre', 'places libres'), 'bg-white text-slate-600 ring-slate-200')
+            pb.full ? badge('Complète', 'bg-red-50 text-red-700 ring-red-200')
+              : l.max === null ? badge('Sans maximum', 'bg-white text-slate-600 ring-slate-200')
+              : badge(plural(pb.seatsLeft, 'place libre', 'places libres'), 'bg-white text-slate-600 ring-slate-200')
           ]),
           h('div', { class: 'mt-3 flex items-baseline gap-1.5' }, [
             h('span', { class: 'text-3xl font-semibold tabular text-slate-900', text: String(pb.count) }),
-            h('span', { class: 'text-sm text-slate-500', text: '/ ' + r.max + ' places' })
+            h('span', { class: 'text-sm text-slate-500', text: l.max === null ? 'étudiants (au moins ' + l.min + ')' : '/ ' + l.max + ' places' })
           ]),
-          h('div', { class: 'mt-2.5' }, progressBar(pb.count, r.max, t.bar, [{ at: r.floor, cls: 'bg-slate-700/70', title: 'Plancher garanti : ' + r.floor }])),
+          h('div', { class: 'mt-2.5' }, progressBar(pb.count, scale, t.bar, [{ at: l.floor, cls: 'bg-slate-700/70', title: 'Effectif garanti : ' + l.floor }])),
           h('div', { class: 'mt-3 text-xs text-slate-500' }, ['Dernière note admise : ', h('span', { class: 'font-semibold tabular text-slate-900', text: fmtGrade(pb.cutoffGrade) })]),
           extra.length ? h('div', { class: 'mt-3 flex flex-wrap gap-1' }, extra.map(function (k) { return badge(SOURCE_UI[k].label + ' : ' + pb.bySource[k], SOURCE_UI[k].cls, SOURCE_UI[k].title); })) : null
         ]);
       });
-      return card('Affectation provisoire', 'De ' + r.floor + ' à ' + r.max + ' places par filière.', [
+      var l0 = limitOf(branches()[0] || '');
+      return card('Affectation provisoire', uniformRules() ? 'De ' + l0.floor + ' à ' + l0.max + ' places par filière.' : 'Places propres à chaque filière.', [
         h('div', { class: 'grid grid-cols-1 md:grid-cols-' + Math.min(4, Math.max(2, cols.length)) + ' gap-3' }, cols),
         h('div', { class: 'mt-5' }, [h('div', { class: 'text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2', text: 'Choix obtenus' }), satisfactionBar(a.satisfaction)])
-      ], { icon: 'scale', actions: [btn('Simuler d’autres règles', { size: 'sm', variant: 'ghost', icon: 'beaker', onClick: function () { go('whatif'); } })] });
+      ], { icon: 'scale', actions: [btn('Modifier les places', { size: 'sm', variant: 'ghost', icon: 'beaker', onClick: function () { go('whatif'); } })] });
     }
 
     function attentionCard() {
@@ -1157,13 +1173,13 @@
     }
 
     function demandCard() {
-      var d = ov.demand, r = ov.config.rules;
+      var d = ov.demand;
       var rows = branches().map(function (b) {
         var s = d.perBranch[b] || {};
-        var over = (s.c1 || 0) - r.max;
+        var mx = limitOf(b).max, over = mx === null ? 0 : (s.c1 || 0) - mx;
         return h('tr', { class: 'hover:bg-slate-50' }, [
           td(h('div', { class: 'flex items-center gap-2' }, [h('span', { class: 'w-2.5 h-2.5 rounded-full ' + tone(b).dot }), h('span', { class: 'font-medium text-slate-900', text: b })])),
-          td(h('div', { class: 'flex items-center gap-2' }, [h('span', { class: 'font-semibold tabular text-slate-900', text: String(s.c1 || 0) }), over > 0 ? badge('+' + over + (branches().length > 3 ? '' : ' au-delà du plafond'), 'bg-red-50 text-red-700 ring-red-200', over + ' au-delà du plafond de ' + r.max) : null]))
+          td(h('div', { class: 'flex items-center gap-2' }, [h('span', { class: 'font-semibold tabular text-slate-900', text: String(s.c1 || 0) }), over > 0 ? badge('+' + over + (branches().length > 3 ? '' : ' au-delà du maximum'), 'bg-red-50 text-red-700 ring-red-200', over + ' au-delà du maximum de ' + mx) : null]))
         ].concat(rankList().slice(1).map(function (k) { return td(String(s['c' + k] || 0), 'tabular text-slate-600'); })));
       });
       return card('Demande exprimée', null, [
@@ -1427,7 +1443,6 @@
 
     function dialogForce(name, forced) {
       var r = rosterByName(name);
-      var max = ov.config.rules.max;
       var forcedCount = {};
       ov.roster.forEach(function (x) { if (x.forcedBranch && squash(x.name) !== squash(name)) forcedCount[x.forcedBranch] = (forcedCount[x.forcedBranch] || 0) + 1; });
       var choice = forced ? forced.branch : (r && r.assigned) || branches()[0];
@@ -1437,7 +1452,8 @@
         branches().forEach(function (b) {
           var pb = ov.allocation.perBranch[b] || {};
           var fc = forcedCount[b] || 0;
-          var full = fc >= max;
+          var max = limitOf(b).max;
+          var full = max !== null && fc >= max;
           var selected = choice === b;
           group.appendChild(h('button', {
             type: 'button', role: 'radio', 'aria-checked': selected ? 'true' : 'false', disabled: full || null,
@@ -1445,7 +1461,7 @@
             onclick: function () { choice = b; drawOptions(); }
           }, [
             h('span', { class: 'flex items-center gap-2 font-medium text-slate-900' }, [h('span', { class: 'w-2.5 h-2.5 rounded-full ' + tone(b).dot }), b]),
-            h('span', { class: 'text-xs text-slate-500 tabular', text: (pb.count || 0) + ' / ' + max + ' actuellement' + (fc ? ' · ' + fc + ' imposée(s)' : '') + (full ? ' · plafond atteint' : '') })
+            h('span', { class: 'text-xs text-slate-500 tabular', text: (pb.count || 0) + (max === null ? '' : ' / ' + max) + ' actuellement' + (fc ? ' · ' + fc + ' imposée(s)' : '') + (full ? ' · maximum atteint' : '') })
           ]));
         });
       }
@@ -1453,7 +1469,7 @@
       var reason = reasonField();
       openDialog({
         title: (forced ? "Changer l'affectation imposée de " : 'Imposer une filière à ') + name,
-        intro: "L'étudiant est placé dans cette filière avant tous les autres ; l'algorithme répartit ensuite les places restantes. Le plafond reste respecté : un autre étudiant peut perdre sa place.",
+        intro: "L'étudiant est placé dans cette filière avant tous les autres ; l'algorithme répartit ensuite les places restantes. Le maximum de la filière reste respecté : un autre étudiant peut perdre sa place.",
         body: h('div', { class: 'space-y-4' }, [group, reason.node]),
         confirmLabel: 'Imposer cette filière',
         onConfirm: function (ctrl) {
@@ -1625,7 +1641,7 @@
           h('div', { class: 'min-w-0' }, [
             h('button', { type: 'button', class: 'font-medium text-slate-900 hover:text-blue-700 hover:underline', text: r.name, onclick: function () { openStudent(r.name); } }),
             r.forcedReason ? h('p', { class: 'text-xs text-slate-500 break-words', text: r.forcedReason }) : null,
-            r.source !== 'MANUAL' ? h('p', { class: 'text-xs text-red-700', text: 'Ignorée : plafond atteint par d’autres affectations imposées.' }) : null
+            r.source !== 'MANUAL' ? h('p', { class: 'text-xs text-red-700', text: 'Ignorée : maximum atteint par d’autres affectations imposées.' }) : null
           ]),
           h('div', { class: 'flex items-center gap-2' }, [branchPill(r.forcedBranch), btn('Retirer', { size: 'sm', variant: 'subtle', disabled: pub, onClick: function () { dialogUnforce(r.name); } })])
         ]);
@@ -1677,64 +1693,111 @@
     }
 
     // =====================================================================
-    // Simulation des règles (n'écrit rien)
+    // Places par filière : minimum et maximum de chaque spécialité, simulés avant d'être appliqués
     // =====================================================================
+    function currentSeatRows() {
+      var out = {};
+      branches().forEach(function (b) { var l = limitOf(b); out[b] = { min: String(l.min), max: l.max === null ? '' : String(l.max) }; });
+      return out;
+    }
+    // Saisie → {limits: {filière: {min, max | null}}}, ou null si une valeur est invalide (erreurs par filière)
+    function readSeatRows(rows) {
+      var limits = {}, errors = {}, ok = true;
+      branches().forEach(function (b) {
+        var x = rows[b] || { min: '', max: '' };
+        var mn = String(x.min).trim(), mx = String(x.max).trim();
+        var min = /^\d{1,3}$/.test(mn) ? Number(mn) : null;
+        var max = mx === '' ? null : (/^\d{1,3}$/.test(mx) ? Number(mx) : NaN);
+        if (min === null) errors[b] = 'Minimum : nombre entier de 0 à 999.';
+        else if (max !== null && (isNaN(max) || max < min)) errors[b] = 'Maximum : entier au moins égal au minimum, ou vide (sans maximum).';
+        if (errors[b]) ok = false; else limits[b] = { min: min, max: max };
+      });
+      return { ok: ok, limits: limits, errors: errors };
+    }
+    // Effectif possible de chaque filière (même calcul que le serveur : floorsOf_ / ceilingsOf_)
+    function seatRanges(limits, N) {
+      var bs = branches(), out = {};
+      bs.forEach(function (b, k) {
+        var otherMax = 0, otherMin = 0;
+        bs.forEach(function (o, j) { if (j === k) return; otherMax += limits[o].max === null ? Infinity : limits[o].max; otherMin += limits[o].min; });
+        var l = limits[b];
+        out[b] = { floor: Math.max(l.min, N - otherMax), ceiling: Math.max(0, Math.min(l.max === null ? Infinity : l.max, N - otherMin)) };
+      });
+      return out;
+    }
+
     function viewWhatIf() {
       var c = ov.config, N = ov.participation.classSize, w = ui.whatif;
-      if (w.max === null) { w.max = c.rules.max; w.min = c.rules.min; }
-      var maxIn = h('input', { type: 'number', min: '1', max: '999', step: '1', value: String(w.max), class: inputCls('text-2xl font-semibold tabular h-14'), id: 'wiMax' });
-      var minIn = h('input', { type: 'number', min: '0', max: '999', step: '1', value: String(w.min), class: inputCls('tabular'), id: 'wiMin' });
+      if (!w.rows || Object.keys(w.rows).join('\n') !== branches().join('\n')) w.rows = currentSeatRows();
+      var demand = (ov.demand && ov.demand.perBranch) || {};
+      var rowsBox = h('div', { class: 'divide-y divide-slate-100' });
       var derived = h('div');
-      function readInputs() {
-        w.max = maxIn.value === '' ? '' : Number(maxIn.value);
-        w.min = minIn.value === '' ? '' : Number(minIn.value);
-        drawDerived();
-      }
-      function drawDerived() {
-        clear(derived);
-        var mx = Number(w.max), mn = Number(w.min);
-        var B = branches().length, O = B - 1; // [V2] n filières, n − 1 « autres »
-        var valid = isFinite(mx) && isFinite(mn) && w.max !== '' && w.min !== '' && mn >= 0 && mn <= mx && Math.floor(mx) === mx && Math.floor(mn) === mn;
-        var checks = valid ? [
-          { ok: B * mx >= N, text: B + ' × ' + mx + ' = ' + (B * mx) + ' places ' + (B * mx >= N ? '≥ ' : '< ') + N + ' étudiants' },
-          { ok: B * mn <= N, text: B + ' × ' + mn + ' = ' + (B * mn) + (B * mn <= N ? ' ≤ ' : ' > ') + N + ' étudiants' }
-        ] : [{ ok: false, text: 'Saisissez des entiers avec 0 ≤ minimum ≤ maximum.' }];
-        var floor = valid ? Math.max(mn, N - O * mx) : null;
-        add(derived, [
-          h('div', { class: 'rounded-lg bg-slate-50 border border-slate-200 p-4' }, [
-            h('div', { class: 'text-xs font-medium text-slate-500', text: 'Plancher garanti par filière' }),
-            h('div', { class: 'mt-0.5 text-2xl font-semibold tabular text-slate-900', text: floor === null ? '—' : String(floor) }),
-            h('div', { class: 'text-xs text-slate-500', text: 'max(minimum, ' + N + ' − ' + O + ' × plafond)' })
+      var rangeCells = {}, errCells = {};
+      branches().forEach(function (b, k) {
+        var x = w.rows[b];
+        var minIn = h('input', { type: 'text', inputmode: 'numeric', value: x.min, class: inputCls('tabular text-center'), id: 'seatMin' + k, 'aria-label': 'Minimum ' + b });
+        var maxIn = h('input', { type: 'text', inputmode: 'numeric', value: x.max, placeholder: 'Aucun', class: inputCls('tabular text-center'), id: 'seatMax' + k, 'aria-label': 'Maximum ' + b });
+        minIn.addEventListener('input', function () { x.min = minIn.value; drawDerived(); });
+        maxIn.addEventListener('input', function () { x.max = maxIn.value; drawDerived(); });
+        rangeCells[b] = h('div', { class: 'text-xs text-slate-500 tabular' });
+        errCells[b] = h('p', { class: 'is-hidden mt-1 text-xs text-red-700' });
+        var first = demand[b] ? demand[b].c1 || 0 : 0;
+        rowsBox.appendChild(h('div', { class: 'py-3 first:pt-0 last:pb-0' }, [
+          h('div', { class: 'flex items-center justify-between gap-2' }, [
+            h('span', { class: 'inline-flex items-center gap-2 font-medium text-slate-900 min-w-0' }, [h('span', { class: 'w-2.5 h-2.5 rounded-full shrink-0 ' + tone(b).dot }), h('span', { class: 'truncate', text: b })]),
+            h('span', { class: 'shrink-0 text-xs text-slate-500', text: first + ' en 1er choix' })
           ]),
-          h('ul', { class: 'mt-3 space-y-1.5' }, checks.map(function (x) {
-            return h('li', { class: 'flex items-center gap-2 text-sm ' + (x.ok ? 'text-emerald-700' : 'text-red-700') }, [icon(x.ok ? 'checkCircle' : 'warning', 'w-4 h-4 shrink-0'), x.text]);
-          }))
-        ]);
+          h('div', { class: 'mt-2 grid grid-cols-2 gap-2' }, [
+            h('label', { class: 'block' }, [h('span', { class: 'block text-xs text-slate-500 mb-0.5', text: 'Minimum' }), minIn]),
+            h('label', { class: 'block' }, [h('span', { class: 'block text-xs text-slate-500 mb-0.5', text: 'Maximum' }), maxIn])
+          ]),
+          h('div', { class: 'mt-1.5' }, rangeCells[b]),
+          errCells[b]
+        ]));
+      });
+      function drawDerived() {
+        var read = readSeatRows(w.rows);
+        branches().forEach(function (b) {
+          errCells[b].textContent = read.errors[b] || '';
+          show(errCells[b], !!read.errors[b]);
+        });
+        clear(derived);
+        if (!read.ok) { branches().forEach(function (b) { rangeCells[b].textContent = ''; }); return; }
+        var rg = seatRanges(read.limits, N);
+        branches().forEach(function (b) {
+          var x = rg[b];
+          rangeCells[b].textContent = x.floor > x.ceiling ? 'Impossible avec les autres valeurs' : 'Recevra ' + (x.floor === x.ceiling ? x.floor : 'de ' + x.floor + ' à ' + x.ceiling) + ' étudiants';
+        });
+        var totalMax = 0, totalMin = 0, open = false;
+        branches().forEach(function (b) { var l = read.limits[b]; if (l.max === null) open = true; else totalMax += l.max; totalMin += l.min; });
+        var checks = [
+          { ok: open || totalMax >= N, text: open ? 'Au moins une filière sans maximum : tout le monde a une place' : 'Maximums : ' + totalMax + ' places ' + (totalMax >= N ? '≥ ' : '< ') + N + ' étudiants' },
+          { ok: totalMin <= N, text: 'Minimums : ' + totalMin + (totalMin <= N ? ' ≤ ' : ' > ') + N + ' étudiants' }
+        ];
+        add(derived, h('ul', { class: 'space-y-1.5' }, checks.map(function (x) {
+          return h('li', { class: 'flex items-center gap-2 text-sm ' + (x.ok ? 'text-emerald-700' : 'text-red-700') }, [icon(x.ok ? 'checkCircle' : 'warning', 'w-4 h-4 shrink-0'), x.text]);
+        })));
       }
-      maxIn.addEventListener('input', readInputs);
-      minIn.addEventListener('input', readInputs);
       drawDerived();
       function run() {
         if (w.loading) return;
+        var read = readSeatRows(w.rows);
+        if (!read.ok) { drawDerived(); return; }
         w.loading = true; w.error = null;
         renderTab();
-        rpc('adminWhatIf', [{ min: w.min, max: w.max }], function (res) { w.loading = false; w.result = res; renderTab(); },
+        rpc('adminWhatIf', [{ limits: read.limits }], function (res) { w.loading = false; w.result = res; renderTab(); },
           function (err) { w.loading = false; w.error = errMsg(err); renderTab(); });
       }
-      var presets = h('div', { class: 'flex flex-wrap gap-2' }, [
-        [c.rules.defaultMin, c.rules.defaultMax, 'Par défaut'], [c.rules.min, 24, null], [c.rules.min, 28, null], [c.rules.min, 30, null]
-      ].map(function (p) {
-        return h('button', { type: 'button', class: 'rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50', text: (p[2] ? p[2] + ' (' : 'Plafond ') + (p[2] ? p[0] + ' / ' + p[1] + ')' : p[1]),
-          onclick: function () { w.min = p[0]; w.max = p[1]; renderTab(); } });
-      }));
-      var form = card('Règles à tester', null, [
+      var form = card('Places par filière', 'Maximum vide : aucun maximum.', [
         h('div', { class: 'space-y-4' }, [
-          field('Plafond par filière (maximum)', maxIn, 'C’est la règle déterminante : aucune filière ne peut dépasser ce nombre.', 'wiMax'),
-          field('Minimum par filière', minIn, null, 'wiMin'),
-          presets, derived,
+          rowsBox, derived,
           h('div', { class: 'flex flex-wrap gap-2 pt-1' }, [
             btn(w.loading ? 'Calcul…' : 'Simuler', { variant: 'primary', icon: 'beaker', disabled: w.loading, onClick: run }),
-            btn('Règles actuelles', { onClick: function () { w.min = c.rules.min; w.max = c.rules.max; w.result = null; w.error = null; renderTab(); } })
+            btn('Valeurs en vigueur', { onClick: function () { w.rows = currentSeatRows(); w.result = null; w.error = null; renderTab(); } }),
+            btn('Par défaut (' + c.rules.defaultMin + ' à ' + c.rules.defaultMax + ' partout)', { variant: 'ghost', onClick: function () {
+              branches().forEach(function (b) { w.rows[b] = { min: String(c.rules.defaultMin), max: String(c.rules.defaultMax) }; });
+              w.result = null; renderTab();
+            } })
           ])
         ])
       ], { icon: 'beaker' });
@@ -1742,24 +1805,26 @@
       var results;
       if (w.error) results = card('Résultat', null, callout('danger', w.error));
       else if (w.loading && !w.result) results = card('Résultat', null, h('div', { class: 'flex items-center justify-center py-16' }, h('div', { class: 'loader loader-lg' })));
-      else if (!w.result) results = card('Résultat', null, emptyState('Choisissez un plafond puis lancez la simulation pour comparer avec l’affectation actuelle.', 'beaker'));
+      else if (!w.result) results = card('Résultat', null, emptyState('Modifiez les places puis simulez pour comparer avec l’affectation actuelle.', 'beaker'));
       else results = whatIfResults(w.result);
 
       return [
-        sectionHeader('Simulation des règles', 'Testez un autre plafond ou un autre minimum : même calcul que l’affectation réelle, sans rien enregistrer.'),
-        h('div', { class: 'grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-6 items-start' }, [form, results])
+        sectionHeader('Places par filière', 'Minimum et maximum de chaque spécialité. Simulez, puis appliquez.'),
+        h('div', { class: 'grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-6 items-start' }, [form, results])
       ];
     }
 
     function whatIfResults(res) {
-      var cur = res.summary.current, scn = res.summary.scenario, c = ov.config;
-      var same = res.rules.min === c.rules.min && res.rules.max === c.rules.max;
+      var cur = res.summary.current, scn = res.summary.scenario;
+      var lim = {};
+      (res.rules.perBranch || []).forEach(function (l) { lim[l.branch] = l; });
       var rows = branches().map(function (b) {
-        var a = cur.perBranch[b] || {}, s = scn.perBranch[b] || {};
+        var a = cur.perBranch[b] || {}, s = scn.perBranch[b] || {}, l = lim[b] || {};
         var delta = (s.count || 0) - (a.count || 0);
         return h('tr', null, [
           td(h('span', { class: 'inline-flex items-center gap-2 font-medium text-slate-900' }, [h('span', { class: 'w-2.5 h-2.5 rounded-full ' + tone(b).dot }), b])),
-          td(String(a.count), 'tabular'), td(fmtGrade(a.cutoffGrade), 'tabular text-slate-500'),
+          td(l.max === null ? 'au moins ' + l.min : l.min + ' à ' + l.max, 'tabular text-slate-500 whitespace-nowrap'),
+          td(String(a.count), 'tabular'),
           td(h('span', { class: 'font-semibold tabular text-slate-900', text: String(s.count) })), td(fmtGrade(s.cutoffGrade), 'tabular text-slate-500'),
           td(delta ? h('span', { class: 'font-semibold tabular ' + (delta > 0 ? 'text-emerald-700' : 'text-red-700'), text: (delta > 0 ? '+' : '') + delta }) : h('span', { class: 'text-slate-400', text: '=' }))
         ]);
@@ -1774,30 +1839,32 @@
           td(h('div', { class: 'flex flex-wrap items-center gap-1.5' }, [branchPill(x.from), icon('chevronRight', 'w-3.5 h-3.5 text-slate-400'), branchPill(x.to)]))
         ]);
       });
+      var limits = {};
+      (res.rules.perBranch || []).forEach(function (l) { limits[l.branch] = { min: l.min, max: l.max }; });
       return h('div', { class: 'space-y-6 min-w-0' }, [
-        card('Résultat : plafond ' + res.rules.max + ', minimum ' + res.rules.min, 'Plancher garanti : ' + res.rules.floor + ' par filière.', [
+        card('Résultat de la simulation', null, [
           h('div', { class: 'space-y-2 mb-4' }, [
-            res.feasible ? callout('success', 'Règles applicables à l’effectif actuel.') : callout('danger', 'Règles inapplicables à l’effectif actuel.')
+            res.feasible ? callout('success', 'Places applicables à l’effectif actuel.') : callout('danger', 'Places inapplicables à l’effectif actuel.')
           ].concat(res.warnings.map(function (x) { return callout('warning', x); }))),
-          tableWrap(['Filière', 'Actuel', 'Dern. note', 'Scénario', 'Dern. note', 'Écart'], rows),
-          h('div', { class: 'mt-4' }, tableWrap(['Satisfaction', 'Actuel', 'Scénario'], [
+          tableWrap(['Filière', 'Places', 'Actuel', 'Simulé', 'Dern. note', 'Écart'], rows),
+          h('div', { class: 'mt-4' }, tableWrap(['Satisfaction', 'Actuel', 'Simulé'], [
             satRow('1er choix obtenu', 'r1')].concat(rankList().slice(1).map(function (k) { return satRow(rankShort(k - 1) + ' choix', 'r' + k); }), [
             satRow('Rang moyen', 'avgRank', fmtDec), satRow('Non placés', 'unplaced')
           ]))),
           h('div', { class: 'mt-5 flex flex-wrap items-center gap-3' }, [
-            btn('Appliquer ces règles', { variant: 'primary', icon: 'check', disabled: same || !res.feasible || !!busy, onClick: function () {
+            btn('Appliquer ces places', { variant: 'primary', icon: 'check', disabled: res.same || !res.feasible || !!busy, onClick: function () {
               confirmAction({
-                title: 'Appliquer plafond ' + res.rules.max + ' et minimum ' + res.rules.min + ' ?',
-                intro: 'L’affectation provisoire et les projections des étudiants seront recalculées immédiatement (à leur prochaine actualisation). ' + plural(res.changed.length, 'étudiant change', 'étudiants changent') + ' de filière.',
-                confirmLabel: 'Appliquer les règles', fn: 'adminSetRules', args: [{ min: res.rules.min, max: res.rules.max }],
-                onOk: function () { ui.whatif.result = null; }
+                title: 'Appliquer ces places ?',
+                intro: 'L’affectation provisoire sera recalculée immédiatement. ' + plural(res.changed.length, 'étudiant change', 'étudiants changent') + ' de filière. Vous pourrez les modifier à nouveau à tout moment.',
+                confirmLabel: 'Appliquer', fn: 'adminSetRules', args: [{ limits: limits }],
+                onOk: function () { ui.whatif.result = null; ui.whatif.rows = null; }
               });
             } }),
-            same ? h('span', { class: 'text-xs text-slate-500', text: 'Ce sont déjà les règles en vigueur.' }) : null
+            res.same ? h('span', { class: 'text-xs text-slate-500', text: 'Ce sont déjà les places en vigueur.' }) : null
           ])
         ], { icon: 'table' }),
         card(plural(res.changed.length, 'étudiant changerait', 'étudiants changeraient') + ' de filière', null,
-          changed.length ? tableWrap(['Étudiant', 'Note', 'Actuel → Scénario'], changed, { maxH: 'max-h-[420px]' }) : emptyState('Aucun changement d’affectation.', 'checkCircle'), { icon: 'users' })
+          changed.length ? tableWrap(['Étudiant', 'Note', 'Actuel → Simulé'], changed, { maxH: 'max-h-[420px]' }) : emptyState('Aucun changement d’affectation.', 'checkCircle'), { icon: 'users' })
       ]);
     }
 
@@ -1820,7 +1887,7 @@
         h('div', { class: 'flex items-center justify-between gap-4' }, [
           h('div', { class: 'min-w-0' }, [
             h('div', { class: 'font-medium text-slate-900', text: open ? 'Ouverte : les étudiants voient leur tableau de bord' : "Fermée : les étudiants voient la page d'attente" }),
-            h('p', { class: 'mt-1 text-sm text-slate-500', text: open ? 'Ils peuvent prévisualiser et enregistrer leurs choix (selon la date limite et le verrou).' : '« Vous pourrez bientôt choisir vos options de spécialité sur cette page. »' })
+            h('p', { class: 'mt-1 text-sm text-slate-500', text: open ? 'Ils peuvent enregistrer leurs choix (selon la date limite et le verrou).' : '« Vous pourrez bientôt choisir vos options de spécialité sur cette page. »' })
           ]),
           switchControl(open, 'Page étudiante ouverte', function () {
             confirmAction(open ? {
@@ -1911,7 +1978,7 @@
       var body = [
         h('div', { class: 'flex items-center gap-3' }, [
           h('span', { class: 'w-10 h-10 rounded-lg flex items-center justify-center ' + (c.locked ? 'bg-slate-100 text-slate-700' : 'bg-emerald-50 text-emerald-700') }, icon(c.locked ? 'lock' : 'unlock', 'w-5 h-5')),
-          h('div', null, [h('div', { class: 'font-medium text-slate-900', text: 'Choix ' + lockLabel().toLowerCase() }), h('p', { class: 'text-sm text-slate-500', text: c.locked ? 'Les étudiants peuvent encore prévisualiser, mais plus enregistrer.' : 'Les étudiants peuvent enregistrer et modifier leurs choix.' })])
+          h('div', null, [h('div', { class: 'font-medium text-slate-900', text: 'Choix ' + lockLabel().toLowerCase() }), h('p', { class: 'text-sm text-slate-500', text: c.locked ? 'Les étudiants voient encore la page, mais ne peuvent plus enregistrer.' : 'Les étudiants peuvent enregistrer et modifier leurs choix.' })])
         ])
       ];
       var actions = [];
@@ -2001,15 +2068,19 @@
     }
 
     function rulesCard() {
-      var r = ov.config.rules, N = ov.participation.classSize;
-      return card('Règles de répartition', null, [
-        h('div', { class: 'grid grid-cols-3 gap-4' }, [
-          stat('Plafond', String(r.max), 'par filière', 'text-blue-800'),
-          stat('Plancher garanti', String(r.floor), N + ' − ' + (branches().length - 1) + ' × ' + r.max),
-          stat('Minimum', String(r.min), r.floor > r.min ? 'non contraignant' : 'contraignant')
-        ]),
-        (r.min !== r.defaultMin || r.max !== r.defaultMax) ? h('p', { class: 'mt-3 text-xs text-amber-700', text: 'Règles modifiées (par défaut : ' + r.defaultMin + ' / ' + r.defaultMax + ').' }) : null,
-        h('div', { class: 'mt-4' }, btn('Tester d’autres règles', { icon: 'beaker', onClick: function () { go('whatif'); } }))
+      var r = ov.config.rules;
+      var rows = branches().map(function (b) {
+        var l = limitOf(b);
+        return h('tr', null, [
+          td(h('span', { class: 'inline-flex items-center gap-2 font-medium text-slate-900' }, [h('span', { class: 'w-2.5 h-2.5 rounded-full ' + tone(b).dot }), b])),
+          td(String(l.min), 'tabular'), td(maxText(l), 'tabular'),
+          td(l.floor === l.ceiling ? String(l.floor) : l.floor + ' à ' + l.ceiling, 'tabular text-slate-500')
+        ]);
+      });
+      return card('Places par filière', null, [
+        tableWrap(['Filière', 'Minimum', 'Maximum', 'Recevra'], rows),
+        r.limitsInvalid ? callout('warning', 'La propriété SEAT_LIMITS contient des valeurs illisibles : elles sont ignorées. Réenregistrez les places.') : null,
+        h('div', { class: 'mt-4' }, btn('Modifier les places', { icon: 'beaker', onClick: function () { go('whatif'); } }))
       ], { icon: 'scale' });
     }
 
@@ -2036,7 +2107,7 @@
       });
       var names = items.map(function (it) { return it.name; });
       return {
-        names: names,
+        names: names, items: items,
         renamed: items.filter(function (it) { return it.from !== null && it.from !== it.name; }),
         added: items.filter(function (it) { return it.from === null; }).map(function (it) { return it.name; }),
         removed: cur.filter(function (b) { return !kept[b]; }),
@@ -2181,8 +2252,16 @@
         var forcedHit = ov.roster.filter(function (x) { return x.forcedBranch && plan.removed.indexOf(x.forcedBranch) !== -1; });
         if (plan.changed && published()) blocking.push('Résultats publiés : dépubliez-les d’abord pour modifier la liste (le nom de la formation reste modifiable).');
         if (forcedHit.length) blocking.push(plural(forcedHit.length, 'affectation imposée vise', 'affectations imposées visent') + ' une spécialité retirée (' + forcedHit.map(function (x) { return x.name; }).join(', ') + ') : retirez-les d’abord.');
-        if (plan.changed && N > 0 && plan.names.length * r.max < N) blocking.push('Avec ' + plan.names.length + ' spécialités et un plafond de ' + r.max + ', il n’y aurait que ' + (plan.names.length * r.max) + ' places pour ' + N + ' étudiants : relevez d’abord le plafond (Simulation des règles).');
-        if (plan.changed && N > 0 && plan.names.length * r.min > N) blocking.push('Avec ' + plan.names.length + ' spécialités et un minimum de ' + r.min + ', il faudrait au moins ' + (plan.names.length * r.min) + ' étudiants : baissez d’abord le minimum (Simulation des règles).');
+        // [V2] Places de la nouvelle liste : celles d'une spécialité gardée la suivent, les autres ont les règles communes
+        var totalMax = 0, totalMin = 0;
+        plan.items.forEach(function (it) {
+          var l = it.from !== null ? limitOf(it.from) : null;
+          if (!l || !l.own) l = { min: r.min, max: r.max };
+          totalMax += l.max === null ? Infinity : l.max;
+          totalMin += l.min;
+        });
+        if (plan.changed && N > 0 && totalMax < N) blocking.push('Avec ces ' + plan.names.length + ' spécialités, il n’y aurait que ' + totalMax + ' places pour ' + N + ' étudiants : relevez d’abord un maximum (Places par filière).');
+        if (plan.changed && N > 0 && totalMin > N) blocking.push('Avec ces ' + plan.names.length + ' spécialités, les minimums demandent ' + totalMin + ' étudiants (' + N + ' inscrits) : baissez d’abord un minimum (Places par filière).');
         blocking.forEach(function (m) { impact.appendChild(callout('danger', m)); });
         if (plan.changed && !blocking.length) {
           if ((plan.added.length || plan.removed.length) && saved) {
@@ -2575,7 +2654,7 @@
         h('div', { class: 'grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6' }, [
           tile('Étudiants chargés', x.loaded + ' / ' + x.expected, x.loaded === x.expected, x.loaded === x.expected ? 'conforme à l’effectif officiel' : 'écart avec l’effectif attendu'),
           tile('Lignes écartées', String((x.skipped || []).length), !(x.skipped || []).length, 'nom vide, doublon ou note illisible'),
-          tile('Colonne Email', ec.present ? ec.filled + ' / ' + x.loaded : 'Absente', true, ec.present ? (ec.column ? 'colonne ' + ec.column + ', vérifiée en premier' : 'vérifiée en premier') : 'recherche par le nom uniquement'),
+          tile('Colonne Email (C)', ec.present ? ec.filled + ' / ' + x.loaded : 'Absente', ec.present, ec.present ? 'adresses vérifiées avant le nom' : (ec.header ? 'C1 contient « ' + ec.header + ' » : écrivez « Email »' : 'C1 vide : écrivez « Email » en C1')),
           tile('Anomalies de choix', String((x.orphanPreferences || []).length + (x.duplicatePreferences || []).length + (x.invalidPreferences || []).length), !((x.orphanPreferences || []).length + (x.duplicatePreferences || []).length + (x.invalidPreferences || []).length), 'orphelins, doublons, illisibles')
         ]),
         h('div', { class: 'grid grid-cols-1 xl:grid-cols-2 gap-6 items-start' }, [
@@ -2791,7 +2870,7 @@
         pageOpen: sc !== 'preparation',
         deadline: sc === 'preparation' ? null : (sc === 'cloture' || sc === 'publie') ? t0 - 2 * HOUR : localToMs(msToLocal(t0 + 3 * DAY).slice(0, 10) + ' 18:00'),
         manualLock: sc === 'publie',
-        policy: 'LAST', min: 12, max: 26,
+        policy: 'LAST', min: 12, max: 26, limits: {},
         announcement: sc === 'campagne' ? { text: 'Réunion d’information sur les trois spécialités jeudi à 10 h, amphithéâtre B. Enregistrez vos choix avant la date limite.', level: 'info', updatedAt: iso(t0 - 5 * HOUR) } : null,
         frozen: [], published: null, ties: {}, forced: {}, journal: [], quota: 94,
         skipped: [], orphans: [], dups: [], invalid: [], badEmails: [], ambiguous: [], calls: 0,
@@ -2810,6 +2889,7 @@
         if (db.manualLock) push('CHOICES_LOCKED', 'true');
         if (db.min !== 12) push('MIN_SEATS', db.min); else if (st.indexOf('MIN_SEATS') !== -1) push('MIN_SEATS', 12, true);
         if (db.max !== 26) push('MAX_SEATS', db.max); else if (st.indexOf('MAX_SEATS') !== -1) push('MAX_SEATS', 26, true);
+        if (Object.keys(db.limits).length) push('SEAT_LIMITS', JSON.stringify(db.limits));
         if (db.policy === 'MANUAL') push('UNDECIDED_POLICY', 'MANUAL'); else if (st.indexOf('UNDECIDED_POLICY') !== -1) push('UNDECIDED_POLICY', 'LAST', true);
         if (db.announcement) push('ANNOUNCEMENT', JSON.stringify(db.announcement));
         if (db.frozen.length) push('FROZEN_SHEETS', JSON.stringify(db.frozen.map(function (f) { return { sheet: f.sheet, at: f.at, by: f.by }; })).slice(0, 300));
@@ -2826,24 +2906,79 @@
       if (db.announcement) journal('ANNONCE', '[info] ' + db.announcement.text, t0 - 5 * HOUR);
 
       // ---- Port fidèle de allocate_ (Code.gs) ----
-      function rulesNow() { return { min: db.min, max: db.max }; }
-      function seatsNeeded(counts, taking, R) { var n = 0; for (var b = 0; b < 3; b++) n += Math.max(0, R.min - counts[b] - (b === taking ? 1 : 0)); return n; }
+      // Comme Code.gs (seatRules_) : règles communes + places propres à certaines filières (max null = sans maximum)
+      function seatRules(min, max, limits) {
+        var own = {}, mins = [], maxs = [];
+        BR.forEach(function (b) {
+          var l = limits && limits[b];
+          if (l) own[b] = { min: l.min, max: l.max };
+          mins.push(l ? l.min : min);
+          maxs.push(l ? (l.max === null ? Infinity : l.max) : max);
+        });
+        return { min: min, max: max, limits: own, mins: mins, maxs: maxs };
+      }
+      function rulesNow() { return seatRules(db.min, db.max, db.limits); }
+      function sumExcept(v, skip) { var t = 0; v.forEach(function (x, k) { if (k !== skip) t += x; }); return t; }
+      function rulesOut(R, N) {
+        return {
+          min: R.min, max: R.max,
+          perBranch: BR.map(function (b, k) {
+            return { branch: b, min: R.mins[k], max: isFinite(R.maxs[k]) ? R.maxs[k] : null, own: !!R.limits[b],
+              floor: Math.max(R.mins[k], N - sumExcept(R.maxs, k)), ceiling: Math.max(0, Math.min(R.maxs[k], N - sumExcept(R.mins, k))) };
+          })
+        };
+      }
+      function rulesKey(R) { return JSON.stringify([R.mins, R.maxs.map(function (m) { return isFinite(m) ? m : null; })]); }
+      function rulesProblems(R, N) {
+        var out = [], tMax = R.maxs.reduce(function (a, b) { return a + b; }, 0), tMin = R.mins.reduce(function (a, b) { return a + b; }, 0);
+        if (tMax < N) out.push('Places insuffisantes : les maximums totalisent ' + tMax + ' places pour ' + N + ' étudiants. Des étudiants resteraient sans filière.');
+        if (tMin > N) out.push('Minimums impossibles : ils totalisent ' + tMin + " étudiants, plus que l'effectif de " + N + '.');
+        return out;
+      }
+      function describeRules(R) {
+        var one = function (k) { return isFinite(R.maxs[k]) ? 'de ' + R.mins[k] + ' à ' + R.maxs[k] : 'au moins ' + R.mins[k] + ', sans maximum'; };
+        if (!Object.keys(R.limits).length) return one(0) + ' étudiants par filière';
+        return BR.map(function (b, k) { return b + ' ' + one(k); }).join(' ; ');
+      }
+      // Comme requestedRules_ : {limits} pour chaque filière, ou {min, max} pour toutes
+      function requestedRules(o) {
+        o = o || {};
+        if (o.limits) {
+          var per = {};
+          BR.forEach(function (b) {
+            var v = o.limits[b] || {}, min = Number(v.min), noMax = v.max === null || v.max === undefined || v.max === '', max = noMax ? null : Number(v.max);
+            if (!isFinite(min) || Math.floor(min) !== min || min < 0 || min > 999 || (!noMax && (!isFinite(max) || Math.floor(max) !== max || max < min || max > 999))) {
+              throw new Error(b + ' : saisissez un minimum et un maximum entiers (0 ≤ minimum ≤ maximum ≤ 999), ou laissez le maximum vide pour « sans maximum ».');
+            }
+            per[b] = { min: min, max: max };
+          });
+          var f = per[BR[0]];
+          if (f.max !== null && BR.every(function (b) { return per[b].min === f.min && per[b].max === f.max; })) return seatRules(f.min, f.max, null);
+          var lim = {};
+          BR.forEach(function (b) { if (per[b].min !== db.min || per[b].max !== db.max) lim[b] = per[b]; });
+          return seatRules(db.min, db.max, lim);
+        }
+        var mn = Number(o.min), mx = Number(o.max);
+        if (!isFinite(mn) || !isFinite(mx) || Math.floor(mn) !== mn || Math.floor(mx) !== mx || mn < 0 || mn > mx) throw new Error('Règles invalides : saisissez des entiers avec 0 ≤ minimum ≤ maximum.');
+        return seatRules(mn, mx, null);
+      }
+      function seatsNeeded(counts, taking, R) { var n = 0; for (var b = 0; b < BR.length; b++) n += Math.max(0, R.mins[b] - counts[b] - (b === taking ? 1 : 0)); return n; }
       function assignOne(counts, prefs, remaining, R) {
         var assigned = -1;
-        for (var k = 0; k < prefs.length; k++) { if (counts[prefs[k]] < R.max && remaining >= seatsNeeded(counts, prefs[k], R)) { assigned = prefs[k]; break; } }
+        for (var k = 0; k < prefs.length; k++) { if (counts[prefs[k]] < R.maxs[prefs[k]] && remaining >= seatsNeeded(counts, prefs[k], R)) { assigned = prefs[k]; break; } }
         if (assigned === -1) {
           var maxNeeded = -1;
-          for (var b = 0; b < 3; b++) { if (counts[b] >= R.max) continue; var need = Math.max(0, R.min - counts[b]); if (need > maxNeeded) { maxNeeded = need; assigned = b; } }
+          for (var b = 0; b < BR.length; b++) { if (counts[b] >= R.maxs[b]) continue; var need = Math.max(0, R.mins[b] - counts[b]); if (need > maxNeeded) { maxNeeded = need; assigned = b; } }
         }
         var reason = null;
-        if (assigned !== prefs[0]) reason = counts[prefs[0]] >= R.max ? 'CAPACITY' : 'QUOTA';
+        if (assigned !== prefs[0]) reason = counts[prefs[0]] >= R.maxs[prefs[0]] ? 'CAPACITY' : 'QUOTA';
         return { b: assigned, reason: reason };
       }
       function autoBranch(counts, R) {
         var best = -1, bestNeed = -1;
-        for (var b = 0; b < 3; b++) {
-          if (counts[b] >= R.max) continue;
-          var need = Math.max(0, R.min - counts[b]);
+        for (var b = 0; b < BR.length; b++) {
+          if (counts[b] >= R.maxs[b]) continue;
+          var need = Math.max(0, R.mins[b] - counts[b]);
           if (best === -1 || need > bestNeed || (need === bestNeed && counts[b] < counts[best])) { best = b; bestNeed = need; }
         }
         return best;
@@ -2871,7 +3006,7 @@
           var f = db.forced[students[k].name];
           if (!f) return;
           var b = BR.indexOf(f.branch);
-          if (counts[b] >= R.max) return;
+          if (counts[b] >= R.maxs[b]) return;
           counts[b]++; done[k] = true; unplaced--;
           var c = students[k].choices;
           res[k].branch = f.branch; res[k].choiceRank = c && c.indexOf(f.branch) !== -1 ? c.indexOf(f.branch) + 1 : null; res[k].source = 'MANUAL';
@@ -2954,7 +3089,7 @@
           if (r.choiceRank) { p.byRank['r' + r.choiceRank]++; sat['r' + r.choiceRank]++; sum += r.choiceRank; n++; }
           if ((r.source === 'ALGO' || r.source === 'TIEBREAK') && (p.cutoffGrade === null || students[k].grade < p.cutoffGrade)) p.cutoffGrade = students[k].grade;
         });
-        BR.forEach(function (b) { per[b].seatsLeft = Math.max(0, a.rules.max - per[b].count); per[b].full = per[b].count >= a.rules.max; });
+        BR.forEach(function (b, k) { var m = a.rules.maxs[k]; per[b].seatsLeft = isFinite(m) ? Math.max(0, m - per[b].count) : null; per[b].full = per[b].count >= m; });
         sat.avgRank = n ? Math.round(sum / n * 100) / 100 : null;
         return { perBranch: per, satisfaction: sat };
       }
@@ -3036,8 +3171,8 @@
         var rankings = rankingsOf(BR).map(function (o, k) { return { order: o, count: saved.filter(function (x) { return same(x.choices, o); }).length, k: k }; })
           .sort(function (x, y) { return (y.count - x.count) || (x.k - y.k); }).map(function (r) { return { order: r.order, count: r.count }; });
         var bubble = [];
-        BR.forEach(function (b) {
-          if (a.counts[b] < db.max) return;
+        BR.forEach(function (b, kb) {
+          if (a.counts[b] < a.rules.maxs[kb]) return;
           var adm = a.order.filter(function (k) { var r = a.res[k]; return r.branch === b && (r.source === 'ALGO' || r.source === 'TIEBREAK'); });
           adm.slice(-3).forEach(function (k) { bubble.push({ branch: b, kind: 'LAST_ADMITTED', name: students[k].name, grade: students[k].grade, rank: a.res[k].rank }); });
           a.order.filter(function (k) { var c = students[k].choices, r = a.res[k]; return c && r.source !== 'MANUAL' && r.branch !== b && (r.branch === null || c.indexOf(b) < c.indexOf(r.branch)); })
@@ -3053,7 +3188,7 @@
               name: PROGRAM.name, classSize: PROGRAM.classSize, specialtiesInvalid: false, defaultName: 'CI2', defaultClassSize: 70, defaultBranches: DEFAULT_BR.slice(),
               minBranches: 2, maxBranches: 4, nameMaxLength: 40, branchMaxLength: 60, builtBy: 'Conçu et développé par les étudiants de la filière RST'
             },
-            rules: { min: db.min, max: db.max, defaultMin: 12, defaultMax: 26, floor: Math.max(db.min, N - (BR.length - 1) * db.max) },
+            rules: (function () { var o = rulesOut(rulesNow(), N); o.defaultMin = 12; o.defaultMax = 26; o.limitsInvalid = false; return o; })(),
             deadline: db.deadline === null ? null : iso(db.deadline), deadlineLocal: db.deadline === null ? null : msToLocal(db.deadline), deadlineInvalid: false,
             locked: L.locked, specialtiesInvalid: false, manualLock: db.manualLock, deadlinePassed: L.passed, studentPageOpen: db.pageOpen, undecidedPolicy: db.policy,
             announcement: db.announcement,
@@ -3100,7 +3235,7 @@
       function tallyNow() {
         var a = allocate(), counts = { SECURE: 0, FALLBACK_SECURED: 0, VULNERABLE: 0, NO_CHOICES: 0 }, by = {};
         var cutRank = {};
-        BR.forEach(function (b) { var adm = a.order.filter(function (k) { return a.res[k].branch === b; }); if (a.counts[b] >= db.max && adm.length) cutRank[b] = a.res[adm[adm.length - 1]].rank; });
+        BR.forEach(function (b) { var adm = a.order.filter(function (k) { return a.res[k].branch === b; }); if (a.counts[b] >= a.rules.maxs[BR.indexOf(b)] && adm.length) cutRank[b] = a.res[adm[adm.length - 1]].rank; });
         var tied = {};
         a.ties.forEach(function (t) { if (t.decisive && !t.resolved) t.members.forEach(function (k) { tied[k] = 1; }); });
         students.forEach(function (x, k) {
@@ -3124,8 +3259,9 @@
           var parts = [];
           for (var j = 0; j < r.choiceRank - 1; j++) {
             var b = x.choices[j], bi = BR.indexOf(b);
-            parts.push(r.at && r.at[bi] >= db.max ? b + ' était complète (' + db.max + '/' + db.max + ') quand votre tour est arrivé ; dernière note admise : ' + fmtG(s.perBranch[b].cutoffGrade)
-              : b + " n'était pas complète (" + (r.at ? r.at[bi] : '?') + '/' + db.max + '), mais les ' + r.remaining + ' étudiant(s) restant(s) étaient tous nécessaires pour atteindre le minimum de ' + db.min + ' places dans les autres filières');
+            var cap = a.rules.maxs[bi];
+            parts.push(r.at && r.at[bi] >= cap ? b + ' était complète (' + cap + '/' + cap + ') quand votre tour est arrivé ; dernière note admise : ' + fmtG(s.perBranch[b].cutoffGrade)
+              : b + " n'était pas complète (" + (r.at ? r.at[bi] : '?') + (isFinite(cap) ? '/' + cap : '') + '), mais les ' + r.remaining + ' étudiant(s) restant(s) étaient tous nécessaires pour atteindre le minimum des autres filières');
           }
           expl = (parts.length ? capitalize(parts.join(' ; ')) + '. ' : '') + (r.choiceRank === 1 ? 'Votre 1er choix, ' + r.branch + ', vous est attribué (rang ' + r.rank + ' sur ' + N + ').' : 'Vous êtes affecté(e) à ' + r.branch + ' (' + rankShort(r.choiceRank - 1) + ' choix, rang ' + r.rank + ' sur ' + N + ').') +
             (r.source === 'TIEBREAK' ? " Votre égalité de note a été départagée par l'administration." : '');
@@ -3133,9 +3269,9 @@
         var st = tallyNow().byStudent[x.name];
         var undecidedAbove = students.filter(function (y) { return y.grade > x.grade && !y.choices; }).length;
         var tiedN = students.filter(function (y) { return y !== x && y.grade === x.grade; }).length;
-        var proj = !x.choices ? { status: 'NO_CHOICES', choices: null, isSaved: false, bestBranch: null, worstBranch: null, reason: null, message: "Vous n'avez pas encore enregistré de choix. Classez les " + BR.length + ' filières, prévisualisez, puis enregistrez.' }
+        var proj = !x.choices ? { status: 'NO_CHOICES', choices: null, isSaved: false, bestBranch: null, worstBranch: null, reason: null, message: 'Aucun choix enregistré.' }
           : st === 'SECURE' ? { status: st, choices: x.choices, isSaved: true, bestBranch: x.choices[0], worstBranch: x.choices[0], reason: null, message: 'Votre 1er choix (' + x.choices[0] + ") est assuré avec les données actuelles : même dans le pire scénario (étudiants à égalité ou indécis devant vous faisant les choix les plus défavorables), vous l'obtenez." }
-          : st === 'FALLBACK_SECURED' ? { status: st, choices: x.choices, isSaved: true, bestBranch: r.branch, worstBranch: r.branch, reason: 'CAPACITY', message: 'Votre 1er choix (' + x.choices[0] + ") n'est pas atteignable, même dans le meilleur scénario : " + x.choices[0] + ' est complet (' + db.max + ' places au maximum) avant votre rang. Dans tous les scénarios, vous êtes affecté(e) à ' + r.branch + '.' }
+          : st === 'FALLBACK_SECURED' ? { status: st, choices: x.choices, isSaved: true, bestBranch: r.branch, worstBranch: r.branch, reason: 'CAPACITY', message: 'Votre 1er choix (' + x.choices[0] + ") n'est pas atteignable, même dans le meilleur scénario : " + x.choices[0] + ' est complet (' + a.rules.maxs[BR.indexOf(x.choices[0])] + ' places au maximum) avant votre rang. Dans tous les scénarios, vous êtes affecté(e) à ' + r.branch + '.' }
           : { status: st, choices: x.choices, isSaved: true, bestBranch: x.choices[0], worstBranch: x.choices[1], reason: 'CAPACITY', message: 'Résultat incertain : au mieux ' + x.choices[0] + ' (1er choix), au pire ' + x.choices[1] + ' (2e choix).' + (tiedN ? ' Cela dépend de : ' + tiedN + ' étudiant(s) à égalité de note avec vous (départage inconnu).' : '') };
         return copy({
           name: x.name, grade: x.grade, rank: r.rank, email: x.email || null, savedChoices: x.choices, savedAt: x.savedAt ? iso(x.savedAt) : null,
@@ -3182,19 +3318,16 @@
         adminGetStatusTally: function () { return tallyNow(); },
         adminExplainStudent: function (name) { return explain(name); },
         adminWhatIf: function (o) {
-          var min = Number(o && o.min), max = Number(o && o.max), N = students.length;
-          if (!isFinite(min) || !isFinite(max) || Math.floor(min) !== min || Math.floor(max) !== max || min < 0 || min > max) throw new Error('Règles invalides : saisissez des entiers avec 0 ≤ minimum ≤ maximum.');
-          var cur = allocate(), scn = allocate({ min: min, max: max }), warnings = [];
-          var B = BR.length, O = B - 1;
-          var feasible = B * max >= N && B * min <= N;
-          if (B * max < N) warnings.push('Plafond insuffisant : ' + B + ' × ' + max + ' = ' + (B * max) + ' places pour ' + N + ' étudiants. Des étudiants resteraient sans filière.');
-          if (B * min > N) warnings.push('Minimum impossible : ' + B + ' × ' + min + ' = ' + (B * min) + " dépasse l'effectif de " + N + '.');
-          if (feasible && N - O * max >= min) warnings.push('Le minimum de ' + min + " n'est pas contraignant : avec un plafond de " + max + ', chaque filière reçoit forcément au moins ' + (N - O * max) + " étudiants. C'est le plafond qui décide.");
+          var N = students.length, R = requestedRules(o), cur = allocate(), scn = allocate(R), warnings = rulesProblems(R, N);
+          var feasible = warnings.length === 0;
+          var fc = {};
+          Object.keys(db.forced).forEach(function (n) { fc[db.forced[n].branch] = (fc[db.forced[n].branch] || 0) + 1; });
+          Object.keys(fc).forEach(function (b) { var k = BR.indexOf(b); if (k !== -1 && fc[b] > R.maxs[k]) warnings.push(fc[b] + ' affectation(s) imposée(s) en ' + b + ' dépassent son maximum : les dernières seraient ignorées.'); });
           var pend = students.filter(function (x) { return !x.choices; }).length;
           if (pend) warnings.push(pend + ' étudiant(s) sans choix : ' + (db.policy === 'LAST' ? 'placés en dernier dans les filières qui en ont le plus besoin (politique actuelle).' : 'laissés non placés (politique manuelle actuelle).'));
-          var pack = function (a) { var s = summary(a), per = {}; BR.forEach(function (b) { per[b] = { count: s.perBranch[b].count, cutoffGrade: s.perBranch[b].cutoffGrade, full: s.perBranch[b].full }; }); return { rules: a.rules, perBranch: per, satisfaction: s.satisfaction, unresolvedTies: a.unresolvedTies }; };
+          var pack = function (a) { var s = summary(a), per = {}; BR.forEach(function (b) { per[b] = { count: s.perBranch[b].count, cutoffGrade: s.perBranch[b].cutoffGrade, full: s.perBranch[b].full }; }); return { rules: rulesOut(a.rules, N), perBranch: per, satisfaction: s.satisfaction, unresolvedTies: a.unresolvedTies }; };
           return copy({
-            rules: { min: min, max: max, floor: Math.max(min, N - O * max) }, feasible: feasible, warnings: warnings,
+            rules: rulesOut(R, N), same: rulesKey(R) === rulesKey(rulesNow()), feasible: feasible, warnings: warnings,
             summary: { current: pack(cur), scenario: pack(scn) },
             changed: cur.order.filter(function (k) { return cur.res[k].branch !== scn.res[k].branch; }).map(function (k) { return { name: students[k].name, grade: students[k].grade, from: cur.res[k].branch, to: scn.res[k].branch, fromRank: cur.res[k].choiceRank, toRank: scn.res[k].choiceRank }; })
           });
@@ -3291,13 +3424,10 @@
           return write('POLITIQUE_SANS_CHOIX', 'Politique sans choix : ' + p, p === 'LAST' ? 'Les étudiants sans choix seront placés en dernier, dans les filières qui en ont le plus besoin.' : "Les étudiants sans choix resteront non placés jusqu'à une décision manuelle.");
         },
         adminSetRules: function (o) {
-          var min = Number(o.min), max = Number(o.max), N = students.length;
-          var B = BR.length;
-          if (B * max < N) throw new Error('Plafond insuffisant : ' + B + ' × ' + max + ' = ' + (B * max) + ' places pour ' + N + ' étudiants.');
-          if (B * min > N) throw new Error('Minimum impossible : ' + B + ' × ' + min + ' = ' + (B * min) + " dépasse l'effectif de " + N + '.');
-          var before = db.min + ' / ' + db.max;
-          db.min = min; db.max = max; unstale(['MIN_SEATS', 'MAX_SEATS']);
-          return write('REGLES', 'Minimum et maximum : ' + before + ' → ' + min + ' / ' + max, 'Règles appliquées : au plus ' + max + ' et au moins ' + min + ' étudiants par filière. Les projections des étudiants changeront à leur prochaine actualisation.');
+          var N = students.length, before = rulesNow(), next = requestedRules(o), pb = rulesProblems(next, N);
+          if (pb.length) throw new Error(pb[0]);
+          db.min = next.min; db.max = next.max; db.limits = next.limits; unstale(['MIN_SEATS', 'MAX_SEATS']);
+          return write('REGLES', describeRules(before) + ' → ' + describeRules(next), 'Places enregistrées : ' + describeRules(next) + '. L’affectation provisoire est recalculée.');
         },
         adminSetAnnouncement: function (o) {
           if (!o || !String(o.text || '').trim()) { db.announcement = null; return write('ANNONCE', 'Annonce retirée', 'Annonce retirée.'); }
@@ -3333,7 +3463,8 @@
           if (!o.branch && !cur) throw new Error(x.name + " n'a pas d'affectation imposée.");
           if (o.branch) {
             var others = Object.keys(db.forced).filter(function (n) { return n !== x.name && db.forced[n].branch === o.branch; }).length;
-            if (others >= db.max) throw new Error('Impossible : ' + o.branch + ' compte déjà ' + others + ' affectations imposées (plafond ' + db.max + ').');
+            var cap = rulesNow().maxs[BR.indexOf(o.branch)];
+            if (others >= cap) throw new Error('Impossible : ' + o.branch + ' compte déjà ' + others + ' affectations imposées (maximum ' + cap + ').');
             db.forced[x.name] = { branch: o.branch, reason: r, by: ADMIN, at: iso(Date.now()) };
           } else delete db.forced[x.name];
           return write('AFFECTATION_IMPOSEE', x.name + ' : ' + (cur ? cur.branch : 'aucune') + ' → ' + (o.branch || 'aucune') + ' — raison : ' + r,
@@ -3392,8 +3523,10 @@
             var hit = Object.keys(db.forced).filter(function (n) { return removed.indexOf(db.forced[n].branch) !== -1; });
             if (hit.length) throw new Error('Des affectations imposées concernent une spécialité retirée : retirez-les d\'abord.');
             var N = students.length;
-            if (names.length * db.max < N) throw new Error('Avec ' + names.length + ' spécialités et un plafond de ' + db.max + ', il n’y aurait que ' + (names.length * db.max) + ' places pour ' + N + " étudiants : relevez d'abord le plafond (Règles de répartition).");
-            if (names.length * db.min > N) throw new Error('Avec ' + names.length + ' spécialités et un minimum de ' + db.min + ', il faudrait au moins ' + (names.length * db.min) + ' étudiants (' + N + " inscrits) : baissez d'abord le minimum (Règles de répartition).");
+            var tMax = 0, tMin = 0;
+            items.forEach(function (it) { var l = it.from && db.limits[it.from]; tMax += l ? (l.max === null ? Infinity : l.max) : db.max; tMin += l ? l.min : db.min; });
+            if (tMax < N) throw new Error('Avec ces ' + names.length + ' spécialités, il n’y aurait que ' + tMax + ' places pour ' + N + " étudiants : relevez d'abord un maximum (Places par filière).");
+            if (tMin > N) throw new Error('Avec ces ' + names.length + ' spécialités, les minimums demandent ' + tMin + ' étudiants (' + N + " inscrits) : baissez d'abord un minimum (Places par filière).");
           }
           var migrate = function (c) { return c.filter(function (b) { return removed.indexOf(b) === -1; }).map(function (b) { return rename[b] || b; }).concat(added); };
           var updated = 0;
@@ -3406,6 +3539,9 @@
             });
             history.forEach(function (hh) { hh.choices = hh.choices.map(function (b) { return rename[b] || b; }); });
             Object.keys(db.forced).forEach(function (n) { var f = db.forced[n]; if (rename[f.branch]) f.branch = rename[f.branch]; });
+            var lim = {};
+            Object.keys(db.limits).forEach(function (b) { if (removed.indexOf(b) === -1) lim[rename[b] || b] = db.limits[b]; });
+            db.limits = lim;
           }
           var parts = [];
           if (name !== PROGRAM.name) parts.push('formation « ' + PROGRAM.name + ' » → « ' + name + ' »');

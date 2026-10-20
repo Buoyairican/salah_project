@@ -97,7 +97,7 @@
     <!-- Avertissement -->
     <p id="disclaimer" class="is-hidden mb-6 flex gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm text-slate-700 shadow-sm">
       <svg class="w-5 h-5 shrink-0 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-      <span><strong id="disclaimerTitle" class="font-semibold text-slate-900">Simulation indicative.</strong> <span id="disclaimerText">Seule la coordination publie les résultats officiels.</span></span>
+      <span><strong id="disclaimerTitle" class="font-semibold text-slate-900">Affectation finale.</strong> <span id="disclaimerText">La coordination fixe les places de chaque filière et publie les résultats officiels.</span></span>
     </p>
 
     <!-- Chargement initial / erreur de chargement -->
@@ -185,11 +185,11 @@
           </div>
         </section>
 
-        <!-- Étape 1 : formulaire -->
+        <!-- Formulaire -->
         <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div class="px-5 sm:px-6 pt-5 pb-4 flex items-center gap-3 border-b border-slate-100">
-            <span class="w-7 h-7 shrink-0 rounded-full bg-blue-700 text-white text-sm font-semibold flex items-center justify-center">1</span>
-            <h2 class="text-base sm:text-lg font-semibold text-slate-900">Vos préférences</h2>
+          <div class="px-5 sm:px-6 pt-5 pb-4 flex items-center gap-2 border-b border-slate-100">
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+            <h2 class="text-base font-semibold text-slate-900">Vos préférences</h2>
           </div>
           <div class="px-5 sm:px-6 py-5">
             <p class="text-sm text-slate-500 mb-5">Classez les <span id="branchCount">3</span> filières par ordre de préférence.</p>
@@ -217,10 +217,6 @@
               </div>
 
               <div class="pt-1 flex flex-col gap-3">
-                <button type="button" id="previewBtn" class="w-full bg-white text-slate-700 ring-1 ring-inset ring-slate-300 font-medium py-3 px-4 rounded-lg hover:bg-slate-50 transition-colors flex justify-center items-center disabled:opacity-60 disabled:cursor-not-allowed">
-                  <span id="previewSpinner" class="loader is-hidden"></span>
-                  <span id="previewBtnText">Prévisualiser l'affectation</span>
-                </button>
                 <button type="button" id="saveBtn" class="w-full bg-blue-700 text-white font-medium py-3 px-4 rounded-lg hover:bg-blue-800 transition-colors flex justify-center items-center shadow-sm disabled:bg-slate-300 disabled:text-slate-600 disabled:shadow-none disabled:cursor-not-allowed">
                   <span id="saveSpinner" class="loader is-hidden"></span>
                   <span id="saveBtnText">Enregistrer mes choix</span>
@@ -246,28 +242,19 @@
       <!-- Colonne de droite -->
       <div class="lg:col-span-7 space-y-6 min-w-0">
 
-        <!-- Étape 2 : résultat -->
-        <section id="resultCard" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden scroll-mt-4">
-          <div class="px-5 sm:px-6 pt-5 pb-4 flex items-center gap-3 border-b border-slate-100">
-            <span class="w-7 h-7 shrink-0 rounded-full bg-blue-700 text-white text-sm font-semibold flex items-center justify-center">2</span>
-            <h2 class="text-base sm:text-lg font-semibold text-slate-900">Résultat de la simulation</h2>
+        <!-- [V2] Classement par note (remplace la simulation et la fiabilité de la projection) -->
+        <section id="rankCard" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="px-5 sm:px-6 pt-5 pb-4 flex items-center gap-2 border-b border-slate-100">
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 20V10m5 10V4m5 16v-6"/></svg>
+            <h2 class="text-base font-semibold text-slate-900">Classement</h2>
           </div>
           <div class="px-5 sm:px-6 py-5">
-            <div id="projLoading" class="is-hidden flex flex-col items-center justify-center py-8">
-              <div class="loader loader-lg mb-3"></div>
-              <p id="projLoadingText" class="text-slate-500 text-sm animate-pulse">Calcul de la simulation en cours…</p>
+            <div class="flex items-baseline gap-2">
+              <span id="rankValue" class="text-4xl font-semibold tracking-tight text-slate-900 tabular">—</span>
+              <span id="rankTotal" class="text-sm text-slate-500"></span>
             </div>
-            <div id="projBox" class="rounded-xl p-4 sm:p-5 border"></div>
+            <p id="rankNote" class="mt-2 text-sm text-slate-600"></p>
           </div>
-        </section>
-
-        <!-- Fiabilité -->
-        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div class="px-5 sm:px-6 pt-5 pb-4 flex items-center gap-2 border-b border-slate-100">
-            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-            <h2 class="text-base font-semibold text-slate-900">Fiabilité de la projection</h2>
-          </div>
-          <div id="coverageBody" class="px-5 sm:px-6 py-5"></div>
         </section>
 
         <!-- Demande par filière -->
@@ -291,7 +278,6 @@
               </table>
             </div>
             <p id="statsNote" class="mt-3 text-xs text-slate-500"></p>
-            <p id="rulesText" class="mt-3 text-sm text-slate-700"></p>
           </div>
         </section>
       </div>
@@ -319,15 +305,6 @@
     var BRANCH_DOTS = ['bg-violet-500', 'bg-sky-500', 'bg-emerald-500', 'bg-amber-500'];
     // [V2] Autant de rangs que de filières (i à partir de 0)
     function rankLabel(i) { return i === 0 ? '1er choix' : (i + 1) + 'ème choix'; }
-    var REASON_LABELS = { CAPACITY: '1er choix complet', QUOTA: "quota minimum d'une autre filière" };
-    var STATUS_UI = {
-      NO_CHOICES:       { label: 'Aucun choix',   box: 'bg-slate-50 border-slate-200',   title: 'text-slate-800',  pill: 'bg-slate-200 text-slate-700' },
-      SECURE:           { label: 'Sécurisé',      box: 'bg-green-50 border-green-200',   title: 'text-green-800',  pill: 'bg-green-200 text-green-800' },
-      FALLBACK_SECURED: { label: 'Repli stable',  box: 'bg-indigo-50 border-indigo-200', title: 'text-indigo-800', pill: 'bg-indigo-200 text-indigo-800' },
-      VULNERABLE:       { label: 'Incertain',     box: 'bg-amber-50 border-amber-300',   title: 'text-amber-900',  pill: 'bg-amber-200 text-amber-900' },
-      UNKNOWN:          { label: 'Statut inconnu', box: 'bg-slate-50 border-slate-200',  title: 'text-slate-800',  pill: 'bg-slate-200 text-slate-700' }
-    };
-
     function $(id) { return document.getElementById(id); }
     function el(tag, cls, text) {
       var n = document.createElement(tag);
@@ -428,7 +405,7 @@
     var lastPollFailed = false;
     var dropdownsReady = false;
     var branchesKey = '';
-    var action = null;         // 'preview' | 'save' pendant un appel lancé par l'étudiant
+    var action = null;         // 'save' pendant un enregistrement lancé par l'étudiant
     var bgInFlight = 0;        // appels 'load' / 'poll' en cours
     var seq = 0;               // numéro du dernier appel lancé
     var appliedSeq = 0;        // numéro de la dernière réponse affichée
@@ -442,7 +419,6 @@
 
     var selects = Array.prototype.slice.call(document.querySelectorAll('.choice-select'));
     var SELECT_CLASS = selects[0].className; // [V2] style des listes recréées
-    var previewBtn = $('previewBtn');
     var saveBtn = $('saveBtn');
 
     function anyInFlight() { return action !== null || bgInFlight > 0; }
@@ -455,20 +431,13 @@
       var b = isOk() && state.rules && state.rules.branches;
       return (Array.isArray(b) && b.length >= 2) ? b.map(String) : DEFAULT_BRANCHES.slice();
     }
-    // Les choix de la projection actuellement à l'écran (pour le polling)
-    function shownChoices() {
-      if (!isOk() || !state.projection || state.projection.status === 'NO_CHOICES') return null;
-      var c = state.projection.choices;
-      return (Array.isArray(c) && c.length === getBranches().length) ? c.slice() : null;
-    }
-
     // =====================================================================
     // Appels serveur
     // =====================================================================
     function call(fn, arg, kind) {
       var id = ++seq;
       var t0 = Date.now();
-      if (kind === 'preview' || kind === 'save') action = kind; else bgInFlight++;
+      if (kind === 'save') action = kind; else bgInFlight++;
       syncBusyUI();
       // [V2] Délai de garde : un appel resté sans réponse ne doit pas bloquer les actualisations suivantes
       var done = false;
@@ -476,7 +445,7 @@
         if (done) return;
         done = true;
         handleError(new Error('Le serveur ne répond pas.'), kind, id);
-      }, (kind === 'preview' || kind === 'save') ? 90000 : 45000);
+      }, kind === 'save' ? 90000 : 45000);
       server(
         function (res) { if (done) return; done = true; clearTimeout(watchdog); onResponse(res, kind, id, t0); },
         function (err) { if (done) return; done = true; clearTimeout(watchdog); handleError(err, kind, id); }
@@ -505,14 +474,14 @@
     }
 
     function settle(kind) {
-      if (kind === 'preview' || kind === 'save') action = null;
+      if (kind === 'save') action = null;
       else bgInFlight = Math.max(0, bgInFlight - 1);
     }
 
     function refresh() {
       if (anyInFlight()) return;           // jamais deux requêtes empilées
       if (!state) call('getDashboardState', null, 'load');
-      else call('getDashboardState', shownChoices(), 'poll');
+      else call('getDashboardState', null, 'poll');
     }
 
     function onResponse(res, kind, id, t0) {
@@ -544,10 +513,9 @@
           if (errorCtx === null) errorCtx = key;
           else if (errorCtx !== key) clearError();
         }
-        if (kind === 'preview' || kind === 'save' || errorKind === 'poll') clearError();
+        if (kind === 'save' || errorKind === 'poll') clearError();
         render();
         if (kind === 'save') showSaveNotice();
-        if (kind === 'preview') scrollToResult();
       }
       syncBusyUI();
       schedulePoll();
@@ -578,9 +546,8 @@
       }
       updateSyncText();
       schedulePoll();
-      // Enregistrement refusé (clôture, verrou…) : relire l'état tout de suite, sans attendre le prochain cycle
-      // [V2] … et de même après une prévisualisation refusée (ex. page fermée entre-temps)
-      if ((kind === 'save' || kind === 'preview') && state) refresh();
+      // Enregistrement refusé (clôture, verrou, page fermée…) : relire l'état tout de suite, sans attendre le prochain cycle
+      if (kind === 'save' && state) refresh();
     }
 
     function showError(msg, kind) {
@@ -608,19 +575,11 @@
 
     function syncBusyUI() {
       var locked = isLocked();
-      previewBtn.disabled = action !== null;
-      show($('previewSpinner'), action === 'preview');
-      $('previewBtnText').textContent = action === 'preview' ? 'Calcul…' : "Prévisualiser l'affectation";
-
       saveBtn.disabled = action !== null || locked;
       show($('saveSpinner'), action === 'save');
       $('saveBtnText').textContent = action === 'save' ? 'Enregistrement…' : (locked ? 'Enregistrement fermé' : 'Enregistrer mes choix');
       show($('lockNote'), isOk() && locked);
       $('lockNoteText').textContent = lockReasonText();
-
-      show($('projLoading'), action !== null);
-      show($('projBox'), action === null);
-      $('projLoadingText').textContent = action === 'save' ? 'Enregistrement en cours…' : 'Calcul de la simulation en cours…';
 
       $('refreshBtn').disabled = anyInFlight();
       $('noGradeRefreshBtn').disabled = anyInFlight();
@@ -633,8 +592,8 @@
     function lockReasonText() {
       // [V2] Résultats publiés
       if (isOk() && state.official && state.official.published) return "Les résultats officiels sont publiés : l'enregistrement est fermé.";
-      if (deadlinePassed()) return "L'enregistrement est fermé : la date limite est passée. Vous pouvez encore prévisualiser.";
-      return "L'enregistrement est fermé pour le moment. Vous pouvez encore prévisualiser.";
+      if (deadlinePassed()) return "L'enregistrement est fermé : la date limite est passée.";
+      return "L'enregistrement est fermé pour le moment.";
     }
 
     // =====================================================================
@@ -756,8 +715,7 @@
       renderOfficial();     // [V2]
       renderSituation();
       renderDeadline();
-      renderProjection();
-      renderCoverage();
+      renderRanking(); // [V2] remplace la projection et la fiabilité
       renderStats();
       updateSelectionStatus();
       syncBusyUI();
@@ -839,10 +797,10 @@
     function renderOfficial() {
       var o = state.official;
       var published = !!(o && o.published === true);
-      $('disclaimerTitle').textContent = published ? 'Les résultats officiels sont publiés.' : 'Simulation indicative.';
+      $('disclaimerTitle').textContent = published ? 'Les résultats officiels sont publiés.' : 'Affectation finale.';
       $('disclaimerText').textContent = published
         ? 'Votre filière officielle est indiquée ci-dessus.'
-        : 'Seule la coordination publie les résultats officiels.';
+        : 'La coordination fixe les places de chaque filière et publie les résultats officiels.';
       var card = $('officialCard');
       show(card, published);
       if (!published) return;
@@ -908,7 +866,7 @@
       if (dl === null) {
         if (locked) {
           value.textContent = 'Enregistrement fermé';
-          note.textContent = 'Les enregistrements sont fermés. Vous pouvez encore prévisualiser.';
+          note.textContent = 'Les enregistrements sont fermés.';
           tone = 'border-red-200 bg-red-50'; noteCls = 'text-red-800';
         } else {
           value.textContent = 'Non fixée';
@@ -938,127 +896,13 @@
       note.className = 'mt-1 text-sm ' + noteCls;
     }
 
-    function reasonLine(reason, prefix) {
-      var label = REASON_LABELS[reason];
-      if (!label) return null;
-      var p = el('p', 'mt-3 inline-flex flex-wrap items-center gap-x-1.5 rounded-md bg-white/70 border border-slate-200 px-2.5 py-1 text-sm');
-      append(p, el('span', 'text-slate-500', prefix), el('span', 'font-semibold text-slate-800', label));
-      return p;
-    }
-
-    function renderProjection() {
-      var p = state.projection || { status: 'NO_CHOICES', choices: null, message: '' };
-      var ui = STATUS_UI[p.status] || STATUS_UI.UNKNOWN;
-      var box = $('projBox');
-      clear(box);
-      box.className = 'rounded-xl p-4 sm:p-5 border transition-colors ' + ui.box;
-
-      var hasChoices = p.status !== 'NO_CHOICES' && Array.isArray(p.choices) && p.choices.length === getBranches().length;
-
-      // En-tête : statut + enregistré / non enregistré
-      var head = el('div', 'flex flex-wrap items-center justify-between gap-2 mb-3');
-      head.appendChild(el('span', 'text-xs font-semibold uppercase tracking-wider text-slate-500', 'Statut de la projection'));
-      var pills = el('span', 'flex flex-wrap gap-1.5');
-      if (hasChoices) {
-        pills.appendChild(p.isSaved
-          ? el('span', 'px-2.5 py-1 text-xs font-semibold rounded-full bg-white text-slate-600 border border-slate-200', 'Enregistré')
-          : el('span', 'px-2.5 py-1 text-xs font-bold rounded-full bg-white text-amber-800 border border-amber-400 border-dashed', 'Non enregistré'));
-      }
-      pills.appendChild(el('span', 'px-3 py-1 text-xs font-bold rounded-full uppercase tracking-wide ' + ui.pill, ui.label));
-      head.appendChild(pills);
-      box.appendChild(head);
-
-      var best = p.bestBranch || '—';
-      var worst = p.worstBranch || '—';
-      var title = el('h3', 'text-lg font-bold mb-2 break-words ' + ui.title);
-
-      if (p.status === 'NO_CHOICES') {
-        title.textContent = 'Aucun choix à projeter';
-        box.appendChild(title);
-        box.appendChild(el('p', 'text-sm text-slate-700 mb-2', 'Classez les ' + getBranches().length + " filières à l'étape 1, puis appuyez sur « Prévisualiser l'affectation » pour voir où votre note vous place."));
-      } else if (p.status === 'SECURE') {
-        title.textContent = 'Projeté pour : ' + best;
-        box.appendChild(title);
-      } else if (p.status === 'FALLBACK_SECURED') {
-        title.textContent = 'Affectation stable : ' + best;
-        box.appendChild(title);
-        box.appendChild(reasonLine(p.reason, hasChoices ? 'Pourquoi pas ' + p.choices[0] + ' ?' : 'Raison :'));
-      } else if (p.status === 'VULNERABLE') {
-        append(title,
-          el('span', 'block sm:inline', 'Au mieux : ' + best),
-          el('span', 'hidden sm:inline text-amber-700', ' · '),
-          el('span', 'block sm:inline', 'Au pire : ' + worst));
-        box.appendChild(title);
-        box.appendChild(el('p', 'text-sm text-slate-700', 'Au mieux : les étudiants encore inconnus passent derrière vous. Au pire : ils passent devant vous et font les choix les plus défavorables pour vous. Voir « Fiabilité de la projection ».'));
-        box.appendChild(reasonLine(p.reason, 'Raison du pire cas :'));
-      } else {
-        title.textContent = 'Statut inconnu';
-        box.appendChild(title);
-      }
-
-      if (p.message) box.appendChild(el('p', 'mt-3 text-slate-700 text-sm leading-relaxed break-words', p.message));
-
-      if (hasChoices) {
-        var forWrap = el('div', 'mt-4');
-        forWrap.appendChild(el('div', 'text-xs font-semibold text-slate-500 mb-1.5', 'Classement simulé'));
-        forWrap.appendChild(rankingNode(p.choices));
-        box.appendChild(forWrap);
-      }
-
-      if (hasChoices && !p.isSaved) {
-        var warn = el('div', 'mt-4 rounded-md border border-dashed border-amber-400 bg-white p-3 text-sm text-slate-700');
-        warn.appendChild(el('p', 'font-semibold text-amber-900', 'Résultat non enregistré'));
-        warn.appendChild(el('p', 'mt-1', 'Cette simulation porte sur un classement que vous n’avez pas enregistré. Vos choix enregistrés n’ont pas changé :'));
-        var saved = state.savedChoices;
-        var savedWrap = el('div', 'mt-2');
-        if (Array.isArray(saved) && saved.length) savedWrap.appendChild(rankingNode(saved));
-        else savedWrap.appendChild(el('span', 'italic text-slate-600', 'aucun choix enregistré.'));
-        warn.appendChild(savedWrap);
-        if (!isLocked()) warn.appendChild(el('p', 'mt-2 text-xs text-slate-500', 'Pour garder ce classement, appuyez sur « Enregistrer mes choix ».'));
-        box.appendChild(warn);
-      }
-    }
-
-    function coverageTile(label, value, hint, warn) {
-      var t = el('div', 'rounded-xl border p-3.5 min-w-0 ' + (warn ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50'));
-      append(t,
-        el('div', 'text-xs font-semibold text-slate-600', label),
-        el('div', 'text-xl font-bold tabular ' + (warn ? 'text-amber-900' : 'text-slate-900'), value),
-        el('div', 'text-xs text-slate-500 mt-0.5', hint));
-      return t;
-    }
-
-    function renderCoverage() {
-      var body = $('coverageBody');
-      clear(body);
-      var c = state.coverage;
-      if (!c) {
-        body.appendChild(el('p', 'text-sm text-slate-500', 'Données de fiabilité indisponibles.'));
-        return;
-      }
-      var N = num(c.classSize), gs = num(c.gradesSubmitted), miss = num(c.missingGrades);
-      var cs = num(c.choicesSaved), und = num(c.undecidedAbove), tied = num(c.tied);
-
-      // [V2] Liste officielle complète : la barre suit les choix enregistrés de la promotion ;
-      // la tuile « Notes manquantes » n'apparaît que s'il en manque.
-      var top = el('div', 'mb-4');
-      var row = el('div', 'flex items-baseline justify-between gap-3 text-sm');
-      append(row, el('span', 'text-slate-600', 'Choix enregistrés dans la promotion'),
-        el('span', 'font-bold text-slate-900 tabular', fmtInt(cs) + ' / ' + fmtInt(N)));
-      var bar = el('div', 'mt-2 h-2 rounded-full bg-slate-100 overflow-hidden');
-      var fill = el('div', 'h-full rounded-full bg-blue-600');
-      fill.style.width = (N && cs !== null ? Math.min(100, Math.round(cs / N * 100)) : 0) + '%';
-      bar.appendChild(fill);
-      append(top, row, bar);
-      body.appendChild(top);
-
-      var grid = el('div', 'grid grid-cols-2 gap-3');
-      append(grid,
-        miss > 0 ? coverageTile('Notes manquantes', fmtInt(miss), 'rang inconnu : ils peuvent être devant vous', true) : null,
-        coverageTile('Sans choix devant vous', fmtInt(und), null, und > 0),
-        coverageTile('À égalité avec vous', fmtInt(tied), null, tied > 0));
-      body.appendChild(grid);
-
+    // [V2] Classement par note : #rang sur l'effectif ; les ex æquo partagent le même rang
+    function renderRanking() {
+      var r = state.ranking || {};
+      var rank = num(r.rank), total = num(r.total), tied = num(r.tied);
+      $('rankValue').textContent = rank !== null ? '#' + rank : '—';
+      $('rankTotal').textContent = total !== null ? 'sur ' + plural(total, 'étudiant', 'étudiants') : '';
+      $('rankNote').textContent = tied ? 'Ex æquo avec ' + plural(tied, 'autre étudiant', 'autres étudiants') + ' (même note).' : 'Classement selon la note.';
     }
 
     function renderStats() {
@@ -1091,19 +935,9 @@
         tbody.appendChild(tr);
       });
 
-      var c = state.coverage || {};
-      $('statsNote').textContent = 'Choix enregistrés' + (num(c.choicesSaved) !== null ? ' : ' + plural(c.choicesSaved, 'étudiant', 'étudiants') : '') + '.';
-
-      var r = state.rules || {};
-      var min = num(r.minSeats), max = num(r.maxSeats), N = num(r.classSize);
-      var rules = $('rulesText');
-      clear(rules);
-      if (min !== null && max !== null) {
-        // [V2] Le plafond est la règle déterminante (le minimum ne joue que si N − (n − 1) × max < min)
-        var others = (branches.length - 1) * max;
-        append(rules, el('strong', 'font-semibold text-slate-900', 'Places par filière : '),
-          'de ' + Math.max(min, N !== null ? N - others : min) + ' à ' + max + '.');
-      }
+      // [V2] Un classement enregistré = une filière en 1er choix
+      var saved = branches.reduce(function (t, b) { return t + (num((stats[b] || {}).c1) || 0); }, 0);
+      $('statsNote').textContent = 'Choix enregistrés : ' + plural(saved, 'étudiant', 'étudiants') + '.';
     }
 
     // =====================================================================
@@ -1233,15 +1067,6 @@
       selects[0].focus();
     });
 
-    previewBtn.addEventListener('click', function () {
-      if (action) return;
-      var r = validateSelection();
-      if (r.error) { showError(r.error, 'validation'); return; }
-      clearError();
-      hideSaveNotice();
-      call('previewOdds', r.choices, 'preview');
-    });
-
     saveBtn.addEventListener('click', function () {
       if (action) return;
       if (isLocked()) { showError(lockReasonText(), 'validation'); return; }
@@ -1262,13 +1087,6 @@
     }
     function hideSaveNotice() { clearTimeout(noticeTimer); show($('saveNotice'), false); }
 
-    function scrollToResult() {
-      if (!window.matchMedia('(max-width: 1023px)').matches) return;
-      var card = $('resultCard');
-      var r = card.getBoundingClientRect();
-      if (r.top < 0 || r.top > window.innerHeight * 0.5) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-
     $('refreshBtn').addEventListener('click', refresh);
     $('noGradeRefreshBtn').addEventListener('click', refresh);
     $('bootRetryBtn').addEventListener('click', refresh);
@@ -1277,13 +1095,14 @@
     // Maquette locale (quand google.script.run est absent)
     // Paramètres d'URL :
     //   ?mock=SECURE | FALLBACK_SECURED | VULNERABLE | NO_CHOICES | NO_GRADE | LOCKED | ADMIN | PUBLISHED
+    //         (SECURE : 4e ; FALLBACK_SECURED : 31e ; VULNERABLE : 25e ex æquo ; NO_CHOICES : sans choix)
     //   &annonce=info | warning   annonce de la coordination ([V2])
     //   &absent=1          avec PUBLISHED : étudiant absent de la feuille publiée ([V2])
     //   ?mock=CLOSED&ouvre=<secondes>   page fermée, rouverte automatiquement après ce délai ([V2])
     //   &deadline=future | soon | past | none | <secondes>   (date limite relative)
     //   &locked=1          fermeture « administrative » (sans dépasser la date)
     //   &skew=<minutes>    décale l'horloge du faux serveur (horloge du téléphone fausse)
-    //   &fail=load | poll | preview | save   simule une erreur serveur
+    //   &fail=load | poll | save   simule une erreur serveur
     //   &poll=<secondes>   intervalle de polling raccourci   &delay=<ms> latence
     //   &specialites=4     [V2] quatre spécialités   &formation=<nom>  nom de la formation
     // =====================================================================
@@ -1306,20 +1125,16 @@
       else if (isFinite(Number(dlMode)) && dlMode !== '') deadline = t0 + Number(dlMode) * 1000;
       else deadline = t0 + (OFFSETS[dlMode] !== undefined ? OFFSETS[dlMode] : OFFSETS.future);
 
-      // [V2] Mêmes filières, règles (12 / 26) et effectif (70) que le serveur ; liste officielle complète
+      // [V2] Mêmes filières et effectif (70) que le serveur ; liste officielle complète
       var CY = 'Cybersécurité', RM = 'Réseaux Mobiles', SU = 'Systèmes Ubiquitaires', IA = 'Intelligence Artificielle';
       var four = q.get('specialites') === '4'; // [V2]
-      var rules = { branches: four ? [CY, RM, SU, IA] : [CY, RM, SU], minSeats: 12, maxSeats: four ? 20 : 26, classSize: 70 };
+      var rules = { branches: four ? [CY, RM, SU, IA] : [CY, RM, SU], classSize: 70 };
       var PROGRAM = { name: q.get('formation') || 'CI2' }; // [V2]
-      var COVER = {
-        SECURE:           { gradesSubmitted: 70, undecidedAbove: 0, tied: 0 },
-        FALLBACK_SECURED: { gradesSubmitted: 70, undecidedAbove: 0, tied: 0 },
-        VULNERABLE:       { gradesSubmitted: 70, undecidedAbove: 4, tied: 1 },
-        NO_CHOICES:       { gradesSubmitted: 70, undecidedAbove: 9, tied: 2 },
-        NO_GRADE:         { gradesSubmitted: 70, undecidedAbove: 9, tied: 2 },
-        LOCKED:           { gradesSubmitted: 70, undecidedAbove: 0, tied: 0 },
-        PUBLISHED:        { gradesSubmitted: 70, undecidedAbove: 0, tied: 0 },
-        CLOSED:           { gradesSubmitted: 70, undecidedAbove: 0, tied: 0 }
+      // [V2] Classement par scénario : rang et nombre d'ex æquo
+      var RANK = {
+        SECURE: { rank: 4, tied: 0 }, FALLBACK_SECURED: { rank: 31, tied: 0 }, VULNERABLE: { rank: 25, tied: 1 },
+        NO_CHOICES: { rank: 40, tied: 2 }, NO_GRADE: { rank: 40, tied: 2 }, LOCKED: { rank: 12, tied: 0 },
+        PUBLISHED: { rank: 4, tied: 0 }, CLOSED: { rank: 4, tied: 0 }
       };
       var others = {};
       others[CY] = { c1: 19, c2: 9, c3: 6 };
@@ -1338,10 +1153,6 @@
         calls: 0
       };
       var FORM_URL = 'https://script.google.com/macros/s/EXEMPLE/exec?page=grades';
-      var BY_FIRST = {};
-      BY_FIRST[CY] = 'VULNERABLE';
-      BY_FIRST[RM] = 'FALLBACK_SECURED';
-      BY_FIRST[SU] = 'SECURE';
       // [V2] Annonce et résultat officiel fictifs
       var annLevel = String(q.get('annonce') || (sc === 'PUBLISHED' ? 'info' : '')).toLowerCase();
       var ANNOUNCEMENT = (annLevel === 'info' || annLevel === 'warning') ? {
@@ -1359,32 +1170,7 @@
 
       function locked() { return db.adminLock || (deadline !== null && now() >= deadline); }
 
-      function project(ch) {
-        if (!ch) {
-          return { status: 'NO_CHOICES', choices: null, isSaved: false, bestBranch: null, worstBranch: null, reason: null,
-            message: "Vous n'avez encore enregistré aucun choix : il n'y a rien à projeter." };
-        }
-        var status = sc;
-        if (sc === 'NO_CHOICES' || sc === 'NO_GRADE') status = BY_FIRST[ch[0]] || 'SECURE';
-        if (sc === 'LOCKED' || sc === 'PUBLISHED' || sc === 'CLOSED') status = 'SECURE';
-        var p = { status: status, choices: ch.slice(), isSaved: sameChoices(ch, db.saved), reason: null };
-        if (status === 'SECURE') {
-          p.bestBranch = p.worstBranch = ch[0];
-          p.message = 'Avec les notes et les choix connus, vous obtenez ' + ch[0] + ' dans le meilleur comme dans le pire cas : les étudiants encore inconnus ne peuvent pas vous en priver.';
-        } else if (status === 'FALLBACK_SECURED') {
-          p.bestBranch = p.worstBranch = ch[1];
-          p.reason = 'QUOTA';
-          p.message = 'Même dans le meilleur cas, ' + ch[0] + " n'est pas atteignable : des étudiants classés après vous sont nécessaires pour remplir le minimum de 12 places d'une autre filière. Vous êtes affecté(e) à " + ch[1] + ' dans tous les cas.';
-        } else {
-          p.bestBranch = ch[0];
-          p.worstBranch = ch[1];
-          p.reason = 'CAPACITY';
-          p.message = 'Si les étudiants encore inconnus passent derrière vous, vous obtenez ' + ch[0] + '. S’ils passent devant vous et font les choix les plus défavorables, ' + ch[0] + ' est complet et vous obtenez ' + ch[1] + '.';
-        }
-        return p;
-      }
-
-      function buildState(choices) {
+      function buildState() {
         if (sc === 'ADMIN') return { access: 'ADMIN', adminUrl: ADMIN_URL, program: PROGRAM }; // [V2]
         if (sc === 'DENIED') return { access: 'DENIED', message: 'Accès refusé : votre adresse institutionnelle ne correspond à aucun étudiant inscrit sur la liste officielle ' + PROGRAM.name + '.', program: PROGRAM, serverTime: new Date(now()).toISOString() }; // [V2]
         if (pageClosed()) return { access: 'CLOSED', message: 'Vous pourrez bientôt choisir vos options de spécialité sur cette page.', program: PROGRAM, announcement: ANNOUNCEMENT, serverTime: new Date(now()).toISOString(), timeZone: 'Africa/Casablanca' }; // [V2]
@@ -1394,8 +1180,7 @@
         }
         var stats = JSON.parse(JSON.stringify(others));
         if (db.saved) db.saved.forEach(function (b, k) { stats[b]['c' + (k + 1)]++; });
-        var cov = COVER[sc];
-        var choicesSaved = rules.branches.reduce(function (n, b) { return n + stats[b].c1; }, 0); // [V2]
+        var rk = RANK[sc];
         return {
           access: 'OK', formUrl: FORM_URL,
           grade: db.grade,
@@ -1407,12 +1192,7 @@
           timeZone: 'Africa/Casablanca',
           rules: rules,
           stats: stats,
-          coverage: {
-            classSize: rules.classSize, gradesSubmitted: cov.gradesSubmitted,
-            missingGrades: rules.classSize - cov.gradesSubmitted, choicesSaved: choicesSaved,
-            undecidedAbove: cov.undecidedAbove, tied: cov.tied
-          },
-          projection: project(choices || db.saved),
+          ranking: { rank: rk.rank, total: rules.classSize, tied: rk.tied }, // [V2]
           announcement: ANNOUNCEMENT, // [V2]
           official: OFFICIAL,         // [V2]
           program: PROGRAM            // [V2]
@@ -1429,7 +1209,7 @@
       var banner = $('mockBanner');
       append(banner, el('strong', 'font-semibold text-slate-800', 'Mode démo'),
         ' — google.script.run est absent : données fictives. Scénarios : ');
-      [['SECURE', '?mock=SECURE'], ['FALLBACK_SECURED', '?mock=FALLBACK_SECURED'], ['VULNERABLE', '?mock=VULNERABLE'],
+      [['4e', '?mock=SECURE'], ['31e', '?mock=FALLBACK_SECURED'], ['ex æquo', '?mock=VULNERABLE'],
        ['NO_CHOICES', '?mock=NO_CHOICES'], ['NO_GRADE', '?mock=NO_GRADE'], ['LOCKED', '?mock=LOCKED'],
        ['fermé sans date', '?mock=SECURE&deadline=none&locked=1'], ['sans date limite', '?mock=SECURE&deadline=none'],
        ['échéance 15 s', '?mock=SECURE&deadline=soon'], ['erreur enregistrement', '?mock=VULNERABLE&fail=save'],
@@ -1454,36 +1234,25 @@
             }, delay);
           }
           return {
-            getDashboardState: function (choices) {
+            getDashboardState: function () {
               respond(function () {
                 db.calls++;
                 if (fail === 'load' && db.calls === 1) throw new Error('Le serveur est occupé. Réessayez dans quelques secondes.');
                 if (fail === 'poll' && db.calls > 1) throw new Error('Le serveur est occupé. Réessayez dans quelques secondes.');
-                if (choices) validate(choices);
-                return buildState(choices);
-              });
-            },
-            previewOdds: function (choices) {
-              respond(function () {
-                if (pageClosed()) throw new Error("Le tableau de bord n'est pas encore ouvert aux étudiants."); // [V2]
-                if (sc === 'ADMIN') throw new Error("Ce compte est un compte administrateur : il n'a pas de choix à prévisualiser ni à enregistrer."); // [V2]
-                if (fail === 'preview') throw new Error('Le serveur est occupé. Réessayez dans quelques secondes.');
-                if (!db.hasGrade) throw new Error("Soumettez d'abord votre note.");
-                validate(choices);
-                return buildState(choices);
+                return buildState();
               });
             },
             saveChoices: function (choices) {
               respond(function () {
                 if (pageClosed()) throw new Error("Le tableau de bord n'est pas encore ouvert aux étudiants."); // [V2]
-                if (sc === 'ADMIN') throw new Error("Ce compte est un compte administrateur : il n'a pas de choix à prévisualiser ni à enregistrer."); // [V2]
+                if (sc === 'ADMIN') throw new Error("Ce compte est un compte administrateur : il n'a pas de choix à enregistrer."); // [V2]
                 if (fail === 'save') throw new Error("Le serveur est occupé : vos choix n'ont pas été enregistrés. Réessayez dans quelques secondes.");
                 if (!db.hasGrade) throw new Error("Soumettez d'abord votre note.");
                 validate(choices);
                 if (locked()) throw new Error('Les enregistrements sont fermés : vos choix ne peuvent plus être modifiés.');
                 db.saved = choices.slice();
                 db.savedAt = new Date(now()).toISOString();
-                return buildState(null);
+                return buildState();
               });
             }
           };
