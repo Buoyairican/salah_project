@@ -19,7 +19,7 @@ const DEFAULT_PROGRAM_NAME = 'CI2';
 const PROGRAM_NAME_MAX_LENGTH = 40;
 const BRANCH_NAME_MAX_LENGTH = 60;
 const MIN_BRANCHES = 2;
-const MAX_BRANCHES = 4; // projection au pire cas (statuts de l'administration) : 0,03 s à 3 filières, 0,2 s à 4, 3 s à 5
+const MAX_BRANCHES = 4; // projection au pire cas (page étudiante, statuts de l'administration) : 0,03 s à 3 filières, 0,2 s à 4, 3 s à 5
 // [V2] Signature de l'équipe qui a conçu l'outil : fixe, indépendante du nom de la formation
 const BUILT_BY_TEXT = 'Conçu et développé par les étudiants de la filière RST';
 let PROGRAM = { name: DEFAULT_PROGRAM_NAME, classSize: CLASS_SIZE, branchesInvalid: false }; // [V2] cf. applyProgram_
@@ -101,11 +101,11 @@ const SOURCES = ['ALGO', 'TIEBREAK', 'MANUAL', 'AUTO'];
 // [V2] Historique : origine d'un classement (SPECIALITES = mis à jour après un changement de la liste)
 const HISTORY_SOURCES = ['ETUDIANT', 'ADMIN', 'SPECIALITES'];
 
-const APP_VERSION = 'V2.8 (2026-10-20)'; // [V2] affichée dans l'interface : vérifie que /exec sert la bonne version
+const APP_VERSION = 'V2.9 (2026-10-20)'; // [V2] affichée dans l'interface : vérifie que /exec sert la bonne version
 const WAITING_TEXT = 'Vous pourrez bientôt choisir vos options de spécialité sur cette page.';
 const ACCESS_DENIED_MESSAGE = 'Accès refusé.';
 const UNPUBLISH_FIRST_MESSAGE = "Dépubliez d'abord les résultats.";
-const ADMIN_NOT_STUDENT_MESSAGE = "Ce compte est un compte administrateur : il n'a pas de choix à enregistrer. Utilisez l'interface de gestion.";
+const ADMIN_NOT_STUDENT_MESSAGE = "Ce compte est un compte administrateur : il n'a pas de choix à prévisualiser ni à enregistrer. Utilisez l'interface de gestion.";
 const PAGE_CLOSED_MESSAGE = "Le tableau de bord n'est pas encore ouvert aux étudiants.";
 const REASON_REQUIRED_MESSAGE = 'Indiquez la raison de cette décision (obligatoire, elle est inscrite au journal).';
 
@@ -1362,8 +1362,8 @@ function writeChoices_(ss, officialName, choices, now, source, author, logHistor
 // POINTS D'ENTRÉE DU TABLEAU DE BORD & ENREGISTREMENT EN CLAIR
 // =========================================================================
 
-// [V2] L'argument (ancien classement prévisualisé) est ignoré : la page étudiante n'affiche plus de projection
-function getDashboardState() {
+// L'argument facultatif est le classement prévisualisé à l'écran (pour que l'actualisation garde la même simulation)
+function getDashboardState(choices) {
   // [V2] Contrôle administrateur AVANT tout appariement par nom
   const email = activeEmail_();
   const props = scriptProps_(); // [V2] lues une seule fois pour toute la requête
@@ -1384,7 +1384,7 @@ function getDashboardState() {
   // sur la page d'attente et cesse d'afficher d'anciennes données ou une annonce retirée.
   if (!open) return closedState_(props);
   const name = currentUserName_(snap, props);
-  return buildState_(snap, name, props);
+  return buildState_(snap, name, normalizeChoices_(choices), props);
 }
 
 // [V2] Étudiant non reconnu (absent de la liste, nom ambigu, compte hors domaine) : un état dédié,
@@ -1399,6 +1399,18 @@ function deniedState_(email, snap) {
   }
   if (!message) return null;
   return { access: 'DENIED', message: message, program: programInfo_(), serverTime: new Date().toISOString() };
+}
+
+function previewOdds(userChoices) {
+  // [V2] Contrôle administrateur AVANT tout appariement par nom
+  const props = scriptProps_(); // [V2] lues une seule fois
+  if (isAdmin_(activeEmail_(), props)) throw new Error(ADMIN_NOT_STUDENT_MESSAGE);
+  const choices = normalizeChoices_(userChoices);
+  if (!choices) throw new Error(invalidChoicesMessage_());
+  assertStudentPageOpen_(props);
+  const snap = loadSnapshot_();
+  const name = currentUserName_(snap, props);
+  return buildState_(snap, name, choices, props);
 }
 
 function saveChoices(userChoices) {
@@ -1416,7 +1428,7 @@ function saveChoices(userChoices) {
   const name = currentUserName_(cached, props);
   const known = indexOfStudent_(cached, name);
   if (known !== -1 && sameChoices_(cached.rows[known].c, choices)) {
-    return buildState_(cached, name, props);
+    return buildState_(cached, name, choices, props);
   }
 
   const cache = CacheService.getScriptCache();
@@ -1447,7 +1459,7 @@ function saveChoices(userChoices) {
     snap.builtAt = Date.now();
     putSnapshot_(snap);
     try { cache.put(cooldownKey, '1', SAVE_COOLDOWN_SECONDS); } catch (e) { Logger.log('Cooldown put failed: ' + e); }
-    return buildState_(snap, officialName, fresh);
+    return buildState_(snap, officialName, choices, fresh);
   });
 }
 
@@ -1463,15 +1475,19 @@ function closedState_(props) {
   };
 }
 
-// [V2] État de la page étudiante : note, classement, choix, demande. Plus de projection (« assuré »,
-// « incertain »…) : la coordination ajuste les places de chaque filière en voyant la demande.
-function buildState_(snap, officialName, props) {
+// [V2] État de la page étudiante : note, rang, choix, projection avec les places en vigueur
+// (« assuré », « incertain », « hors d'atteinte ») et conseil, demande.
+function buildState_(snap, officialName, requested, props) {
   const u = indexOfStudent_(snap, officialName);
   if (u === -1) throw new Error(noGradeMessage_());
 
   const me = snap.rows[u];
-  props = props || scriptProps_(); // [V2] lues une seule fois (transmises par l'appelant)
+  // [V2] Propriétés lues une seule fois (transmises par l'appelant) ; places propres à chaque filière
+  props = props || scriptProps_();
+  const rules = rules_(props);
   const lockInfo = choicesLock_(props);
+  const coverage = coverage_(snap, u);
+  const N = snap.rows.length || PROGRAM.classSize;
   return {
     access: 'OK',
     grade: me.g,
@@ -1481,9 +1497,15 @@ function buildState_(snap, officialName, props) {
     locked: lockInfo.locked,
     serverTime: new Date().toISOString(),
     timeZone: Session.getScriptTimeZone(),
-    rules: { branches: BRANCHES.slice(), classSize: snap.rows.length || PROGRAM.classSize },
+    rules: {
+      branches: BRANCHES.slice(), classSize: N,
+      // [V2] Places en vigueur : chaque filière recevra de floor à ceiling étudiants
+      seats: rulesOut_(rules, N).perBranch.map(function(p) { return { branch: p.branch, floor: p.floor, ceiling: p.ceiling }; })
+    },
     stats: stats_(snap),
     ranking: ranking_(snap, u),
+    coverage: coverage,
+    projection: project_(snap, u, requested || me.c, me.c, coverage, rules),
     // [V2] Champs additionnels : annonce et résultat officiel publié
     announcement: announcement_(props),
     official: officialResult_(officialName, props),
@@ -1605,8 +1627,11 @@ function project_(snap, u, choices, saved, coverage, rules) {
       message: 'Aucun choix enregistré.'
     };
   }
-  const behindCase = reachableLandings_(snap, u, choices, false, rules);
-  const aheadCase = reachableLandings_(snap, u, choices, true, rules);
+  // [V2] Situations possibles avant le tour de l'étudiant : elles ne dépendent pas de son classement
+  const behindStates = reachableStates_(snap, u, false, rules);
+  const aheadStates = reachableStates_(snap, u, true, rules);
+  const behindCase = landingsFrom_(behindStates, choices, rules);
+  const aheadCase = landingsFrom_(aheadStates, choices, rules);
   const reachable = choices.filter(function(b) { return (b in behindCase) || (b in aheadCase); });
   const best = reachable[0];
   const worst = reachable[reachable.length - 1];
@@ -1623,8 +1648,24 @@ function project_(snap, u, choices, saved, coverage, rules) {
     bestBranch: best,
     worstBranch: worst,
     reason: reason,
-    message: projectionMessage_(status, choices, best, worst, reason, coverage, rules)
+    message: projectionMessage_(status, choices, best, worst, reason, coverage, rules),
+    // [V2] Filière que l'étudiant obtiendrait dans tous les cas en la plaçant en 1er choix (page étudiante)
+    safeBranch: status === 'SECURE' ? best : safeFirstChoice_([behindStates, aheadStates], choices, rules)
   };
+}
+
+// [V2] Première filière, dans l'ordre de l'étudiant, qui lui serait attribuée dans toutes les situations
+// possibles s'il la plaçait en 1er choix ; null si aucune
+function safeFirstChoice_(cases, choices, rules) {
+  const mine = prefIndices_(choices);
+  for (let k = 0; k < mine.length; k++) {
+    const order = [mine[k]].concat(mine.filter(function(b) { return b !== mine[k]; }));
+    const landings = {};
+    cases.forEach(function(c) { landsOn_(c, order, rules, landings); });
+    const got = Object.keys(landings);
+    if (got.length === 1 && got[0] === BRANCHES[mine[k]]) return BRANCHES[mine[k]];
+  }
+  return null;
 }
 
 function projectionMessage_(status, choices, best, worst, reason, cov, rules) {
@@ -1652,7 +1693,22 @@ function projectionMessage_(status, choices, best, worst, reason, cov, rules) {
     (reason ? ' Dans le pire cas, vous perdez votre 1er choix car ' + why + '.' : '');
 }
 
-function reachableLandings_(snap, u, choices, ahead, rules) {
+// [V2] Filières où l'étudiant peut atterrir (avec la raison) depuis les situations calculées par reachableStates_
+function landingsFrom_(c, choices, rules) {
+  return landsOn_(c, prefIndices_(choices), fullRules_(rules), {});
+}
+
+function landsOn_(c, mine, rules, landings) {
+  for (let s = 0; s < c.states.length; s++) {
+    c.decode(c.states[s]);
+    const res = assignOne_(c.x, mine, c.remaining, rules);
+    if (!(BRANCHES[res.b] in landings)) landings[BRANCHES[res.b]] = res.reason;
+  }
+  return landings;
+}
+
+// Situations (effectifs par filière) possibles au tour de l'étudiant u : ahead = les ex æquo passent devant
+function reachableStates_(snap, u, ahead, rules) {
   rules = fullRules_(rules); // [V2]
   const totalStudents = snap.rows.length;
   const me = snap.rows[u];
@@ -1715,15 +1771,10 @@ function reachableLandings_(snap, u, choices, ahead, rules) {
     });
   });
 
-  const mine = prefIndices_(choices);
-  const remaining = totalStudents - 1 - pos;
-  const landings = {};
-  for (let s = 0; s < states.length; s++) {
-    decode(states[s], pos);
-    const res = assignOne_(x, mine, remaining, rules);
-    if (!(BRANCHES[res.b] in landings)) landings[BRANCHES[res.b]] = res.reason;
-  }
-  return landings;
+  return {
+    states: states, x: x, remaining: totalStudents - 1 - pos,
+    decode: function(code) { decode(code, pos); }
+  };
 }
 
 function stepOptions_(x, prefs, remaining, out, rules) {
