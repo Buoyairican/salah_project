@@ -441,6 +441,8 @@
     var clockOffset = 0;       // heure serveur - heure du téléphone (ms)
     var lastUpdateAt = 0;      // heure locale de la dernière réponse reçue
     var lastPollFailed = false;
+    var bootFails = 0;         // [V2] échecs du premier chargement : nouvelles tentatives automatiques
+    var bootRetryTimer = null;
     var dropdownsReady = false;
     var branchesKey = '';
     var action = null;         // 'preview' | 'save' pendant un appel lancé par l'étudiant
@@ -585,8 +587,15 @@
         show($('staleBanner'), true);
       }
       if (!state) {
-        $('bootErrorText').textContent = msg;
+        // [V2] Serveur momentanément saturé : quelques nouvelles tentatives rapprochées avant d'abandonner
+        bootFails++;
+        var auto = bootFails <= 4;
+        $('bootErrorText').textContent = msg + (auto ? ' Nouvelle tentative automatique dans quelques secondes…' : '');
         show($('bootError'), true);
+        if (auto) {
+          clearTimeout(bootRetryTimer);
+          bootRetryTimer = setTimeout(function () { if (!state && !anyInFlight()) refresh(); }, 2500 * bootFails);
+        }
       } else if (id >= appliedSeq) {
         if (kind === 'poll') showError('Mise à jour automatique impossible : ' + msg, 'poll');
         else showError(msg, 'action');
