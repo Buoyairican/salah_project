@@ -30,9 +30,16 @@ const LOCKED_PROPERTY = 'CHOICES_LOCKED';
 
 const SNAPSHOT_CACHE_KEY = 'snapshot_v9'; // [V2] v9 : colonne Email = C, en-tête « Email »
 const SNAPSHOT_CACHE_SECONDS = 30;
+// [V2] Copie de secours du dernier snapshot, servie quand le verrou est occupé (enregistrements simultanés)
+const SNAPSHOT_STALE_KEY = 'snapshot_v9_stale';
+const SNAPSHOT_STALE_SECONDS = 900;
+const SNAPSHOT_LOCK_WAIT_MS = 3000;
 const SAVE_COOLDOWN_SECONDS = 5;
 const MAX_TIE_GROUP = 4;
 const LOCK_WAIT_MS = 10000;
+const SAVE_LOCK_WAIT_MS = 25000; // [V2] un enregistrement attend plus longtemps son tour qu'un affichage
+// [V2] Projection d'un étudiant gardée en cache tant que notes, choix et places ne changent pas
+const PROJECTION_CACHE_SECONDS = 600;
 
 // [V2] Messages qui citent la formation ou les spécialités : fonctions (valeurs de l'exécution en cours)
 function noGradeMessage_() {
@@ -101,7 +108,7 @@ const SOURCES = ['ALGO', 'TIEBREAK', 'MANUAL', 'AUTO'];
 // [V2] Historique : origine d'un classement (SPECIALITES = mis à jour après un changement de la liste)
 const HISTORY_SOURCES = ['ETUDIANT', 'ADMIN', 'SPECIALITES'];
 
-const APP_VERSION = 'V2.9 (2026-10-20)'; // [V2] affichée dans l'interface : vérifie que /exec sert la bonne version
+const APP_VERSION = 'V2.10 (2026-10-21)'; // [V2] affichée dans l'interface : vérifie que /exec sert la bonne version
 const WAITING_TEXT = 'Vous pourrez bientôt choisir vos options de spécialité sur cette page.';
 const ACCESS_DENIED_MESSAGE = 'Accès refusé.';
 const UNPUBLISH_FIRST_MESSAGE = "Dépubliez d'abord les résultats.";
@@ -317,9 +324,9 @@ function formatManagedSheet_(sh, name) {
   }
 }
 
-function withScriptLock_(fn) {
+function withScriptLock_(fn, waitMs) {
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(LOCK_WAIT_MS)) {
+  if (!lock.tryLock(waitMs || LOCK_WAIT_MS)) {
     throw new Error('Serveur occupé, réessayez dans quelques secondes.');
   }
   try {
@@ -1035,6 +1042,7 @@ function readSnapshot_(ss, diag) {
     skipped.push({ line: line, why: why });
   };
   const emailPattern = institutionalEmailPattern_();
+  const admins = adminEmails_(); // [V2] lue une seule fois (et non une fois par ligne)
   const badEmails = [];
   const emailCount = {};
 
@@ -1054,7 +1062,7 @@ function readSnapshot_(ss, diag) {
       const raw = cellEmail_(responses[i][emailIndex]);
       if (raw) {
         if (!emailPattern.test(raw)) badEmails.push({ name: officialName, email: raw, why: 'adresse hors @' + DOMAIN + ' ou mal formée' });
-        else if (isAdmin_(raw)) badEmails.push({ name: officialName, email: raw, why: "adresse d'un administrateur" });
+        else if (admins.indexOf(raw) !== -1) badEmails.push({ name: officialName, email: raw, why: "adresse d'un administrateur" });
         else { email = raw; emailCount[raw] = (emailCount[raw] || 0) + 1; }
       }
     }
@@ -1166,18 +1174,42 @@ function loadSnapshot_() {
   };
   const hit = usable(cache.get(SNAPSHOT_CACHE_KEY));
   if (hit) return hit;
-  return withScriptLock_(function() {
-    const again = usable(cache.get(SNAPSHOT_CACHE_KEY));
-    if (again) return again;
-    const snap = readSnapshot_(SpreadsheetApp.getActiveSpreadsheet());
+  return readFreshSnapshot_(SpreadsheetApp.getActiveSpreadsheet(), null, function() {
+    return usable(cache.get(SNAPSHOT_CACHE_KEY));
+  });
+}
+
+// [V2] Relecture des feuilles, mise en cache sous verrou. Verrou occupé (enregistrements simultanés) :
+// copie de secours si elle existe, sinon lecture sans verrou et sans mise en cache ; un simple affichage
+// ne doit jamais échouer sur « Serveur occupé ». again() : snapshot déjà remis en cache entre-temps, ou null.
+function readFreshSnapshot_(ss, diag, again) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(SNAPSHOT_LOCK_WAIT_MS)) {
+    if (!diag) {
+      try {
+        const raw = CacheService.getScriptCache().get(SNAPSHOT_STALE_KEY);
+        const stale = raw ? JSON.parse(raw) : null;
+        if (stale && stale.branchesKey === branchesKey_()) return stale;
+      } catch (e) { Logger.log('Stale snapshot read failed: ' + e); }
+    }
+    return readSnapshot_(ss, diag);
+  }
+  try {
+    const cached = again ? again() : null;
+    if (cached) return cached;
+    const snap = readSnapshot_(ss, diag);
     putSnapshot_(snap);
     return snap;
-  });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function putSnapshot_(snap) {
   try {
-    CacheService.getScriptCache().put(SNAPSHOT_CACHE_KEY, JSON.stringify(snap), SNAPSHOT_CACHE_SECONDS);
+    const raw = JSON.stringify(snap);
+    CacheService.getScriptCache().put(SNAPSHOT_CACHE_KEY, raw, SNAPSHOT_CACHE_SECONDS);
+    CacheService.getScriptCache().put(SNAPSHOT_STALE_KEY, raw, SNAPSHOT_STALE_SECONDS);
   } catch (e) {
     Logger.log('Cache put failed: ' + e);
     invalidateSnapshot_();
@@ -1185,7 +1217,7 @@ function putSnapshot_(snap) {
 }
 
 function invalidateSnapshot_() {
-  try { CacheService.getScriptCache().remove(SNAPSHOT_CACHE_KEY); } catch (e) { Logger.log('Cache remove failed: ' + e); }
+  try { CacheService.getScriptCache().removeAll([SNAPSHOT_CACHE_KEY, SNAPSHOT_STALE_KEY]); } catch (e) { Logger.log('Cache remove failed: ' + e); }
 }
 
 // [V2] Caches secondaires : statuts des projections et résultat officiel publié
@@ -1437,7 +1469,8 @@ function saveChoices(userChoices) {
     throw new Error("Patientez quelques secondes avant d'enregistrer à nouveau.");
   }
 
-  return withScriptLock_(function() {
+  // [V2] Seules la relecture et l'écriture se font sous verrou ; l'état (projection comprise) est calculé après
+  const done = withScriptLock_(function() {
     // [V2] Relecture fraîche sous verrou : page fermée ou choix clos entre-temps
     const fresh = scriptProps_();
     assertStudentPageOpen_(fresh);
@@ -1459,8 +1492,9 @@ function saveChoices(userChoices) {
     snap.builtAt = Date.now();
     putSnapshot_(snap);
     try { cache.put(cooldownKey, '1', SAVE_COOLDOWN_SECONDS); } catch (e) { Logger.log('Cooldown put failed: ' + e); }
-    return buildState_(snap, officialName, choices, fresh);
-  });
+    return { snap: snap, name: officialName, props: fresh };
+  }, SAVE_LOCK_WAIT_MS);
+  return buildState_(done.snap, done.name, choices, done.props);
 }
 
 // [V2] Ce que voit un étudiant quand la page est fermée : texte d'attente et annonce, rien d'autre
@@ -1505,12 +1539,43 @@ function buildState_(snap, officialName, requested, props) {
     stats: stats_(snap),
     ranking: ranking_(snap, u),
     coverage: coverage,
-    projection: project_(snap, u, requested || me.c, me.c, coverage, rules),
+    projection: cachedProjection_(snap, u, requested || me.c, coverage, rules),
     // [V2] Champs additionnels : annonce et résultat officiel publié
     announcement: announcement_(props),
     official: officialResult_(officialName, props),
     program: programInfo_() // [V2]
   };
+}
+
+// [V2] Projection mise en cache : les actualisations (toutes les minutes, par onglet ouvert) ne la recalculent
+// que si les notes, les choix, les filières ou les places ont changé
+function cachedProjection_(snap, u, choices, coverage, rules) {
+  const me = snap.rows[u];
+  if (!choices) return project_(snap, u, choices, me.c, coverage, rules);
+  const material = JSON.stringify([BRANCHES, rulesKey_(rules), me.h, choices, me.c,
+    snap.rows.map(function(r) { return [r.g, r.c]; })]);
+  const key = 'proj_' + hash53_(material, 1) + '_' + hash53_(material, 2);
+  const cache = CacheService.getScriptCache();
+  try {
+    const hit = cache.get(key);
+    if (hit) return JSON.parse(hit);
+  } catch (e) { Logger.log('Projection cache read failed: ' + e); }
+  const p = project_(snap, u, choices, me.c, coverage, rules);
+  try { cache.put(key, JSON.stringify(p), PROJECTION_CACHE_SECONDS); } catch (e) { Logger.log('Projection cache put failed: ' + e); }
+  return p;
+}
+
+// Empreinte 53 bits d'une chaîne (cyrb53), en base 36
+function hash53_(str, seed) {
+  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
 }
 
 // [V2] Classement par note : 1 + nombre d'étudiants mieux notés ; tied = autres étudiants de même note
@@ -2151,12 +2216,8 @@ function adminContext_(ss, fresh) {
   const props = scriptProps_(); // [V2] avant toute lecture des feuilles (liste des spécialités en vigueur)
   let snap;
   if (fresh) {
-    // Lecture fraîche (sans le cache de 30 s) puis remise en cache, sous verrou
-    snap = withScriptLock_(function() {
-      const s = readSnapshot_(ss, diag);
-      putSnapshot_(s);
-      return s;
-    });
+    // Lecture fraîche (sans le cache de 30 s) puis remise en cache, sous verrou s'il est libre
+    snap = readFreshSnapshot_(ss, diag, null);
   } else {
     snap = loadSnapshot_();
   }
