@@ -4,6 +4,8 @@ The screen behind the actors for *The Perfect Candidate* (ENSA Kénitra, English
 night-office backdrop that shows the scene. When the Narrator says **“Freeze!”**, the screen turns to ice with a sound,
 a professional answers in a video or voice note with subtitles, the lesson goes on the board, and the room thaws.
 
+![The key screens](preview.jpg)
+
 All seven clips in it today are **examples** (synthetic voices, drawn silhouettes) so you can rehearse now. Swap
 them for the real ones when they arrive (see [Adding a real clip](#adding-a-real-clip)).
 
