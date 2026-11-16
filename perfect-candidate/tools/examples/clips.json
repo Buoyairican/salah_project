@@ -1,0 +1,106 @@
+{
+  "_about": "Example clips, NOT real people: synthetic voices and drawn placeholders, so the whole show can be rehearsed before the real videos arrive. Each clip covers a different case: English or French, landscape video, portrait (phone) video, or voice note. French clips get English subtitles. `text` is what the voice says; `en` is the subtitle when it differs.",
+  "clips": [
+    {
+      "id": "example-1",
+      "scene": 1,
+      "kind": "video",
+      "orientation": "landscape",
+      "language": "en",
+      "voice": "en_US-lessac-medium",
+      "hue": 18,
+      "cues": [
+        { "text": "When a candidate walks in late without a word, the jury has already formed an opinion." },
+        { "text": "If you know you will be late, call before the interview starts." },
+        { "text": "When you arrive, greet everyone, apologise once, and move on." },
+        { "text": "And never blame the traffic." }
+      ]
+    },
+    {
+      "id": "example-2",
+      "scene": 2,
+      "kind": "video",
+      "orientation": "landscape",
+      "language": "fr",
+      "voice": "fr_FR-tom-medium",
+      "hue": 205,
+      "cues": [
+        { "text": "Quand un membre du jury vous coupe, ne vous arrêtez pas.", "en": "When a jury member cuts you off, don’t stop." },
+        { "text": "Restez calme, et demandez poliment : est-ce que je peux finir ma phrase ?", "en": "Stay calm, and ask politely: may I finish my sentence?" },
+        { "text": "Trente secondes suffisent.", "en": "Thirty seconds is enough." },
+        { "text": "Un bon jury écoute. Un bon candidat garde le fil.", "en": "A good jury listens. A good candidate keeps the thread." }
+      ]
+    },
+    {
+      "id": "example-3",
+      "scene": 3,
+      "kind": "audio",
+      "language": "en",
+      "voice": "en_GB-alan-medium",
+      "hue": 265,
+      "cues": [
+        { "text": "Hardworking, motivated, team player. I hear those words ten times a day." },
+        { "text": "Without proof, they mean nothing." },
+        { "text": "Tell me a real situation, what you did, and the result." },
+        { "text": "With a number, if you can." }
+      ]
+    },
+    {
+      "id": "example-4",
+      "scene": 4,
+      "kind": "video",
+      "orientation": "portrait",
+      "language": "en",
+      "voice": "en_US-amy-medium",
+      "hue": 160,
+      "cues": [
+        { "text": "In my panel interview, a juror called my answer weak." },
+        { "text": "I wanted to argue. Instead, I asked which part worried him." },
+        { "text": "Then I answered that exact point, with facts." },
+        { "text": "Criticism is often a question in disguise." }
+      ]
+    },
+    {
+      "id": "example-5",
+      "scene": 5,
+      "kind": "audio",
+      "language": "fr",
+      "voice": "fr_FR-siwis-medium",
+      "hue": 330,
+      "cues": [
+        { "text": "Une première impression, ce n'est pas une preuve.", "en": "A first impression is not evidence." },
+        { "text": "Dans notre jury, chacun note seul, avec une grille, avant de discuter.", "en": "On our jury, everyone scores alone, with a score sheet, before we discuss." },
+        { "text": "On juge le travail, pas la cravate.", "en": "We judge the work, not the tie." }
+      ]
+    },
+    {
+      "id": "example-6",
+      "scene": 6,
+      "kind": "video",
+      "orientation": "landscape",
+      "language": "en",
+      "voice": "en_US-ryan-high",
+      "hue": 40,
+      "cues": [
+        { "text": "When a candidate has no questions, I wonder if they really want the job." },
+        { "text": "Ask what success looks like after six months." },
+        { "text": "Ask what problem the team has today." },
+        { "text": "An interview is a conversation that goes both ways." }
+      ]
+    },
+    {
+      "id": "example-7",
+      "scene": 7,
+      "kind": "video",
+      "orientation": "portrait",
+      "language": "fr",
+      "voice": "fr_FR-siwis-medium",
+      "hue": 190,
+      "cues": [
+        { "text": "Trois minutes pour décider, c'est trop court.", "en": "Three minutes to decide is too short." },
+        { "text": "Avant de dire non, relisez le dossier du candidat.", "en": "Before you say no, read the candidate’s file again." },
+        { "text": "Parfois, la meilleure preuve est à la page trois.", "en": "Sometimes the best evidence is on page three." }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+node_modules/
+app/dist/
+.vite/
+*.log
+.DS_Store
+qa/
+tools/press-sheet/press-sheet.html

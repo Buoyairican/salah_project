@@ -1,0 +1,48 @@
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+
+.deck-viewport {
+  position: fixed; inset: 0;
+  background: #000; overflow: hidden;
+}
+/* Absolutely centred, then scaled about its own centre. A grid/flex centring would let the
+   1920px track overflow small viewports and push the stage right and down. */
+.deck-stage {
+  position: absolute;
+  left: calc(50% - var(--stage-w) / 2); top: calc(50% - var(--stage-h) / 2);
+  width: var(--stage-w); height: var(--stage-h);
+  background: var(--color-bg); color: var(--color-ink);
+  font-family: var(--font-text), sans-serif;
+  overflow: hidden; transform-origin: center center;
+  -webkit-font-smoothing: antialiased;
+}
+.slide { position: absolute; inset: 0; visibility: hidden; }
+.slide.is-active { visibility: visible; }
+.safe {
+  position: absolute;
+  left: var(--safe-x); top: var(--safe-y);
+  width: var(--safe-w); height: var(--safe-h);
+}
+/* A safe region inside another (a layout in a fullBleed's content) fills it instead of offsetting twice. */
+.safe .safe { left: 0; top: 0; width: 100%; height: 100%; }
+.deck-black { position: fixed; inset: 0; background: #000; z-index: 10; display: none; }
+.deck-black.is-on { display: block; }
+
+.type-hero, .type-display-1, .type-display-2, .type-h1, .type-h2, .type-h3 {
+  font-family: var(--font-display), serif; font-weight: var(--font-display-weight, 400); margin: 0;
+}
+.type-body, .type-caption { font-family: var(--font-text), sans-serif; font-weight: var(--font-text-weight, 400); margin: 0; }
+.type-hero { font-size: var(--type-hero-size); line-height: var(--type-hero-lh); letter-spacing: var(--type-hero-ls); }
+.type-display-1 { font-size: var(--type-display-1-size); line-height: var(--type-display-1-lh); letter-spacing: var(--type-display-1-ls); }
+.type-display-2 { font-size: var(--type-display-2-size); line-height: var(--type-display-2-lh); letter-spacing: var(--type-display-2-ls); }
+.type-h1 { font-size: var(--type-h1-size); line-height: var(--type-h1-lh); letter-spacing: var(--type-h1-ls); }
+.type-h2 { font-size: var(--type-h2-size); line-height: var(--type-h2-lh); letter-spacing: var(--type-h2-ls); }
+.type-h3 { font-size: var(--type-h3-size); line-height: var(--type-h3-lh); letter-spacing: var(--type-h3-ls); }
+.type-body { font-size: var(--type-body-size); line-height: var(--type-body-lh); letter-spacing: var(--type-body-ls); }
+.type-caption { font-size: var(--type-caption-size); line-height: var(--type-caption-lh); letter-spacing: var(--type-caption-ls); }
+.text-muted { color: var(--color-ink-muted); }
+
+.line-mask { overflow: hidden; }
+.word { display: inline-block; }
+/* Ambient loops write the translate, scale and rotate properties, which compose with the transform the step
+   timeline animates. A moving target keeps its own compositor layer, so a blurred blob is not re-blurred each frame. */
+.ambient { will-change: translate; }
